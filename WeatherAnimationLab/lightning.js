@@ -24,21 +24,27 @@ export class Lightning {
     for(const mesh of this.meshes){this.scene.remove(mesh);mesh.geometry.dispose();}
     this.meshes=[];
     for(const {points,strength} of this.paths){
-      const position=[],uv=[],strengths=[],indices=[];
+      const pointCount=points.length;
+      const position=new Float32Array(pointCount*2*3);
+      const uv=new Float32Array(pointCount*2*2);
+      const strengths=new Float32Array(pointCount*2);
+      const indices=new Uint16Array((pointCount-1)*6);
       points.forEach((p,i)=>{
         const a=points[Math.max(0,i-1)],b=points[Math.min(points.length-1,i+1)];
         const dx=(b.x-a.x)*this.width,dy=(b.y-a.y)*this.height;
         const len=Math.hypot(dx,dy)||1,halfWidth=22*(.85+.15*(1-i/(points.length-1)))*Math.sqrt(strength);
         const nx=-dy/len*halfWidth/this.width,ny=dx/len*halfWidth/this.height;
-        position.push(p.x+nx,1-p.y-ny,0,p.x-nx,1-p.y+ny,0);
-        uv.push(0,i/(points.length-1),1,i/(points.length-1));
-        strengths.push(strength,strength);
-        if(i)indices.push(i*2-2,i*2-1,i*2,i*2-1,i*2+1,i*2);
+        const vertex=i*6, uvOffset=i*4;
+        position[vertex]=p.x+nx; position[vertex+1]=1-p.y-ny; position[vertex+3]=p.x-nx; position[vertex+4]=1-p.y+ny;
+        const t=i/(pointCount-1);
+        uv[uvOffset+1]=t; uv[uvOffset+2]=1; uv[uvOffset+3]=t;
+        strengths[i*2]=strength; strengths[i*2+1]=strength;
+        if(i){const index=(i-1)*6;indices[index]=i*2-2; indices[index+1]=i*2-1; indices[index+2]=i*2; indices[index+3]=i*2-1; indices[index+4]=i*2+1; indices[index+5]=i*2;}
       });
       const geometry=new THREE.BufferGeometry();
-      geometry.setAttribute('position',new THREE.Float32BufferAttribute(position,3));
-      geometry.setAttribute('uv',new THREE.Float32BufferAttribute(uv,2));
-      geometry.setAttribute('strength',new THREE.Float32BufferAttribute(strengths,1));geometry.setIndex(indices);
+      geometry.setAttribute('position',new THREE.BufferAttribute(position,3));
+      geometry.setAttribute('uv',new THREE.BufferAttribute(uv,2));
+      geometry.setAttribute('strength',new THREE.BufferAttribute(strengths,1));geometry.setIndex(new THREE.BufferAttribute(indices,1));
       const mesh=new THREE.Mesh(geometry,this.material);mesh.frustumCulled=false;this.scene.add(mesh);this.meshes.push(mesh);
     }
   }

@@ -16,6 +16,7 @@
   var model = null;
   var precipHost = $('precip-chart');
   var lastSize = '';
+  var lastStatusText = null;
 
   /* --- Popisky času se odvozují od teď, ne z pevných řetězců ----- */
 
@@ -65,12 +66,16 @@
 
   function drawStatus() {
     var el = $('badge');
-    if (statusOverride) { el.textContent = statusOverride; return; }
-    if (!model) { el.textContent = 'Loading…'; return; }
-    if (model.meta.mock) { el.textContent = 'Design preview · Sample weather'; return; }
-    el.textContent = model.meta.stale
+    var next;
+    if (statusOverride) next = statusOverride;
+    else if (!model) next = 'Loading…';
+    else if (model.meta.mock) next = 'Design preview · Sample weather';
+    else next = model.meta.stale
       ? 'Offline · last update ' + ago(model.meta.fetchedAt)
       : model.meta.source + ' · updated ' + ago(model.meta.fetchedAt);
+    if (next === lastStatusText) return;
+    lastStatusText = next;
+    el.textContent = next;
   }
 
   /* --- Jednotlivé části ------------------------------------------ */

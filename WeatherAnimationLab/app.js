@@ -73,13 +73,16 @@ class WeatherGrade extends Effect {
         vec3 vivid=mix(vec3(luminance),c.rgb,1.16);
         vec3 night = vivid * vec3(.26,.38,.60) + vec3(.004,.007,.013);
         vec3 color = mix(vivid, night, nightAmount);
-        float glow = exp(-length((uv-flashPosition)*vec2(1.,1.2))*5.);
-        float structure = .2 + dot(c.rgb,vec3(.25,.5,.25));
-        color += flashAmount * glow * structure * vec3(.48,.57,.88);
+        if(flashAmount>0.){
+          float glow = exp(-length((uv-flashPosition)*vec2(1.,1.2))*5.);
+          float structure = .2 + dot(c.rgb,vec3(.25,.5,.25));
+          color += flashAmount * glow * structure * vec3(.48,.57,.88);
+        }
         // Advected banks at distinct depths. Density has clear gaps, soft edges,
         // and stretched detail; foreground sheets cross the distant field.
         if(fogAmount>.001){
           vec2 p=uv*vec2(viewAspect,1.);
+          float light=exp(-length((uv-vec2(.72,.8))*vec2(viewAspect,1.))*2.);
           for(int i=0;i<4;i++){
             float layer=float(i);
             vec2 q=p*vec2(1.45+layer*.52,3.4+layer*1.25)
@@ -90,7 +93,6 @@ class WeatherGrade extends Effect {
             float filament=noise2(q*vec2(.6,2.8)+bend);
             float density=smoothstep(.42,.72,body+filament*.075);
             float opacity=1.-exp(-density*fogAmount*(.48+layer*.16));
-            float light=exp(-length((uv-vec2(.72,.8))*vec2(viewAspect,1.))*2.);
             vec3 bank=mix(vec3(.25,.32,.40),vec3(.53,.59,.65),body);
             bank+=vec3(.065,.052,.03)*light;
             bank=mix(bank,vec3(.035,.065,.105)+body*.055,nightAmount);
@@ -243,9 +245,10 @@ async function init() {
   lightningPass.clearPass.enabled=false;
   composer.addPass(lightningPass);
   bloom = new BloomEffect({ intensity:.35, luminanceThreshold:1.5, luminanceSmoothing:.5, mipmapBlur:true });
-  composer.addPass(new EffectPass(camera,bloom,new ToneMappingEffect({ mode:ToneMappingMode.AGX })));
   grade = new WeatherGrade();
-  composer.addPass(new EffectPass(camera,grade));
+  // Preserve bloom → tone mapping → grade ordering in one shader, avoiding a
+  // full-resolution half-float framebuffer write/read between the last two.
+  composer.addPass(new EffectPass(camera,bloom,new ToneMappingEffect({ mode:ToneMappingMode.AGX }),grade));
   particles = new Precipitation(renderer, createRandom(seed ^ 0x9e3779b9));
   setScene(presets[params.get('scene')] ? params.get('scene') : 'sunset',true);
   const resize = () => {
@@ -310,6 +313,9 @@ async function init() {
     clouds.localWeatherVelocity.set(velocity.x*.000025,velocity.y*.000025);
     clouds.shapeVelocity.set(velocity.x*.00015,velocity.y*.00015,.000025*current.wind);
     clouds.shapeDetailVelocity.set(velocity.x*.00019,velocity.y*.00019,.000037*current.wind);
+    // At full night the celestial plane is opaque and replaces every sky pixel.
+    // Keep the atmospheric sky throughout dawn/dusk blending.
+    sky.visible=current.night!==1;
     celestial.update(elapsed,current,light,camera,starClock);
     snowFog.setRGB(.39+light.warmth*.045*(1-current.blizzard)-current.blizzard*.19,.44-current.blizzard*.20,.51-light.warmth*.045*(1-current.blizzard)-current.blizzard*.205);
     grade.uniforms.get('snowHaze').value=light.haze;

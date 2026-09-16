@@ -46,18 +46,31 @@ export class CelestialSky {
             stars*=.97+.03*sin(time*1.1+hash(floor(mapUv*8192.))*60.);
           }
           float moonRadius=.027;
-          float disk=1.-smoothstep(moonRadius-pixel,moonRadius+pixel,r);
-          float relief=.78+.12*noise(d*440.)+.1*noise(d*930.);
-          float limb=sqrt(max(0.,1.-pow(r/moonRadius,2.)));
-          vec3 moon=vec3(.81,.88,1.)*(disk*relief*(1.7+.6*limb)
-                    +.24*exp(-r*36.)+.1*exp(-r*12.))*moonAmount;
-          float sunRadius=mix(.021,.044,snowAmount);
-          float sunDisk=1.-smoothstep(sunRadius*(1.-snowAmount*.65),sunRadius,r);
-          vec3 sunColor=mix(vec3(1.,.95,.83),vec3(1.,.58,.24),warmth);
-          float sunlight=(sunDisk*3.5+exp(-r*30.)*.7+exp(-r*8.)*.16)*sunAmount;
-          float sunAlpha=clamp((sunDisk+exp(-r*18.)*.32)*sunAmount,0.,1.);
+          float disk=0.;
+          vec3 moon=vec3(0.);
+          if(moonAmount!=0.){
+            disk=1.-smoothstep(moonRadius-pixel,moonRadius+pixel,r);
+            float surface=0.;
+            if(disk>0.){
+              float relief=.78+.12*noise(d*440.)+.1*noise(d*930.);
+              float limb=sqrt(max(0.,1.-pow(r/moonRadius,2.)));
+              surface=disk*relief*(1.7+.6*limb);
+            }
+            moon=vec3(.81,.88,1.)*(surface
+                      +.24*exp(-r*36.)+.1*exp(-r*12.))*moonAmount;
+          }
+          vec3 sun=vec3(0.);
+          float sunAlpha=0.;
+          if(sunAmount!=0.){
+            float sunRadius=mix(.021,.044,snowAmount);
+            float sunDisk=1.-smoothstep(sunRadius*(1.-snowAmount*.65),sunRadius,r);
+            vec3 sunColor=mix(vec3(1.,.95,.83),vec3(1.,.58,.24),warmth);
+            float sunlight=(sunDisk*3.5+exp(-r*30.)*.7+exp(-r*8.)*.16)*sunAmount;
+            sun=sunColor*sunlight;
+            sunAlpha=clamp((sunDisk+exp(-r*18.)*.32)*sunAmount,0.,1.);
+          }
           float alpha=max(night,sunAlpha);
-          vec3 rgb=(base+stars*(1.-disk*moonAmount)+moon)*night+sunColor*sunlight;
+          vec3 rgb=(base+stars*(1.-disk*moonAmount)+moon)*night+sun;
           gl_FragColor=vec4(rgb/max(alpha,.0001),alpha);
         }`,
       transparent: true, depthTest: false, depthWrite: false, toneMapped: false,
@@ -72,6 +85,8 @@ export class CelestialSky {
     scene.add(this.mesh);
   }
   update(time, state, light, camera, now) {
+    this.mesh.visible = state.night !== 0 || light.sun !== 0;
+    if (!this.mesh.visible) return;
     const u = this.material.uniforms;
     u.time.value = time;
     u.projectionInverse.value.copy(camera.projectionMatrixInverse);

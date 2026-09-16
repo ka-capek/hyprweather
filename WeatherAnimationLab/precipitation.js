@@ -34,6 +34,14 @@ export class Precipitation {
         varying float vAlpha,vFog,vNear;
         void main(){
           vUv=uv;
+          float present=1.-smoothstep(amount-.035,amount,seed.w);
+          // All four vertices share this seed. Fully transparent slots can be
+          // clipped before positioning/lighting, without changing blend order.
+          if(present==0.){
+            vScreen=vec2(0.);vAlpha=0.;vFog=0.;vNear=0.;
+            gl_Position=vec4(2.,2.,2.,1.);
+            return;
+          }
           // Only 0.25% of snow slots are close; the field is mainly fine distant snow.
           float nearSlot=1.-step(.0025,seed.z);
           float snowDepth=mix(14.+seed.z*72.,5.+seed.z*170.,nearSlot);
@@ -53,7 +61,6 @@ export class Precipitation {
           vScreen=gl_Position.xy/gl_Position.w*.5+.5;
           vNear=nearSlot*kind;
           vFog=1.-exp(-depth*extinction*kind);
-          float present=1.-smoothstep(amount-.035,amount,seed.w);
           vAlpha=mix(.52,.7,kind)*present*mix(1.,.65,vNear);
           // Far flakes merge with the veil rather than shining through it.
           vAlpha*=mix(1.,exp(-depth*extinction)*(.9-.2*seed.z),kind);
@@ -65,16 +72,19 @@ export class Precipitation {
         varying vec2 vUv,vScreen;
         varying float vAlpha,vFog,vNear;
         void main(){
-          float rainShape=pow(max(0.,1.-abs(vUv.x-.5)*2.),2.)*sin(vUv.y*3.14159);
-          float radius=length(vUv-.5);
-          float snowShape=(1.-smoothstep(mix(.17,.03,vNear),.5,radius));
-          snowShape*=mix(1.,exp(-radius*radius*7.),vNear);
           float lit=exp(-length((vScreen-lightPosition)*vec2(aspect,1.))*2.4)*directLight;
-          vec3 snowColor=mix(vec3(.75,.8,.86),lightColor,clamp(.2+lit*.8,0.,1.));
-          snowColor=mix(snowColor,fogColor,vFog*.8);
-          vec3 rainColor=mix(vec3(.76,.87,1.),lightColor,lit*.25);
-          vec3 color=mix(rainColor,snowColor,kind)+flash*.3;
-          gl_FragColor=vec4(color,vAlpha*mix(rainShape,snowShape,kind));
+          if(kind < .5){
+            float rainShape=pow(max(0.,1.-abs(vUv.x-.5)*2.),2.)*sin(vUv.y*3.14159);
+            vec3 rainColor=mix(vec3(.76,.87,1.),lightColor,lit*.25);
+            gl_FragColor=vec4(rainColor+flash*.3,vAlpha*rainShape);
+          } else {
+            float radius=length(vUv-.5);
+            float snowShape=(1.-smoothstep(mix(.17,.03,vNear),.5,radius));
+            snowShape*=mix(1.,exp(-radius*radius*7.),vNear);
+            vec3 snowColor=mix(vec3(.75,.8,.86),lightColor,clamp(.2+lit*.8,0.,1.));
+            snowColor=mix(snowColor,fogColor,vFog*.8);
+            gl_FragColor=vec4(snowColor+flash*.3,vAlpha*snowShape);
+          }
           #include <colorspace_fragment>
         }`,
       transparent:true,depthTest:false,depthWrite:false,toneMapped:false,
@@ -89,6 +99,7 @@ export class Precipitation {
     this.previousTime = time;
     this.drift = (this.drift || 0) + dt*wind;
     for(const [material,amount] of [[this.rainMaterial,rain],[this.snowMaterial,snow]]){
+      if(amount<=.001)continue;
       const u=material.uniforms;
       u.time.value=time;u.amount.value=amount;u.drift.value=this.drift;
       u.slant.value=wind;u.flash.value=flash;

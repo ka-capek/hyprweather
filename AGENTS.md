@@ -320,3 +320,9 @@ Hlavní aplikace nyní načítá renderer z `WeatherAnimationLab/dist` místo fo
 ## Schválené živé zobrazení
 
 Uživatel schválil vzhled animací. Hlavní aplikace používá pouze scénu podle aktuálního počasí a denní doby vybraného města. Název města otevírá výběr lokality bez doprovodné šipky.
+
+## Výkon bez snížení kvality
+
+Uživatel požaduje úspory zbytečné práce, nikoli nižší kvalitu obrazu. Zachovat rozlišení, cloud quality/iterations, temporální stabilizaci, bloom a počet viditelných částic. Sloučen závěrečný průchod bloom → tone mapping → grade; při plné noci se nekreslí zcela překrytá atmosférická obloha. Neaktivní slunce/měsíc a nulově průhledné částice vynechávají zbytečné výpočty. Povrch měsíce se počítá pouze uvnitř jeho disku. Samotné volumetrické mraky a jejich stíny zůstávají beze změn; softwarové offscreen měření není měření FPS na uživatelově GPU.
+
+Ověření: build a všech 8 testovacích souborů prošly, stejně jako živá aplikace v Electronu. Deterministické snímky noci, slabého deště, chumelenice, mlhy a blesku měly maximální rozdíl kanálu 1/255 proti předchozí verzi. Noc ověřena s high nastavením, ostatní s existujícím low režimem pro SwiftShader. Draw calls: noc 25→23, déšť 26→25, chumelenice 26→24, mlha 25→24, blesk 30→29. Jde o méně práce rendereru, nikoli procentuální záruku zlepšení FPS.
