@@ -43,16 +43,6 @@ velikosti a bez scrollování — stejně jako aplikaci.
 > Electron je tu jen vývojový obal, aby šel prototyp posoudit jako aplikace.
 > **Není to rozhodnutí o technologii** — výběr stacku patří do Etapy 3.
 
-### Jako stránka v prohlížeči
-
-```sh
-./preview.sh          # http://localhost:8765
-PORT=9000 ./preview.sh
-```
-
-Otevírej přes `http://localhost:…`, ne přes `file://`. Pozor, že prohlížeč
-ubere z výšky obsahu vlastní lišty — geometrii na něm neověřuj.
-
 ### Screenshot v cílovém rozměru
 
 ```sh
@@ -65,7 +55,7 @@ aplikace dá `./run.sh --capture=out.png`.
 
 ## Laboratoř vzhledů
 
-Dvě nezávislé volby, dvě stránky. Obě otevři přes `./run.sh` (klávesy 1/2/3),
+Dvě nezávislé volby, dvě stránky. Otevři je přes `./run.sh` (klávesy 1–4),
 ať je vidíš ve skutečné velikosti.
 
 | Stránka | `./run.sh` | Volí | Zapisuje se do |
@@ -95,7 +85,6 @@ devshell/               Electron obal: okno, schéma app://, trvalé úložišt�
 assets/img/             fotografie pozadí
 assets/fonts/           Inter (OFL) + licence
 run.sh                  spuštění jako okno
-preview.sh              lokální HTTP server
 shot.sh                 screenshot v cílovém rozměru
 ASSETS.md               zdroje a licence přibalených souborů
 AGENTS.md               zadání a plán všech etap

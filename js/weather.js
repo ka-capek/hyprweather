@@ -35,7 +35,7 @@
   /*
    * Úložiště. V desktopovém obalu jde přes `window.appStore` do souboru —
    * Chromium totiž localStorage pro schéma app:// mezi spuštěními nezachová.
-   * V prohlížeči (laboratoře, preview.sh) se použije localStorage.
+   * V prohlížeči (screenshoty přes shot.sh) se použije localStorage.
    */
   var store = window.appStore ? {
     get: function (k) { return window.appStore.get(k); },
