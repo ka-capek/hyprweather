@@ -10,7 +10,7 @@ with matching icons. Keep experiments in this lab until visually approved.
       and vary advection smoothly without fixed emission points.
 - [x] Add fog and strong-wind studies and original matching SVG icons.
 - [x] Verify build, six scene presets, pause, resize and reproducible seeds.
-- [ ] Approve cloud appearance and motion on the user's GPU/monitor.
+- [x] User approved the first lab iteration on their monitor.
 - [x] Push a reviewable update with Linux test instructions (`36bcccb`).
 
 ## Research and implementation decision
@@ -53,3 +53,35 @@ That remains a hardware acceptance check after pull.
   icons and control layout were visible; final cloud appearance, transitions and
   performance need the user's real GPU. No desktop GPU configuration was changed.
 - `--quality=low` is a diagnostic-only option. Normal launch retains high quality.
+
+
+## Second iteration — sky-only, snow and night
+
+- [x] Remove ground and put both camera frusta fully above the horizon.
+- [x] Compose light in the upper third and fade the lower half to navy.
+- [x] Separate light/heavy snowfall, restrict near flakes and add lit depth haze.
+- [x] Add a procedural starfield and glowing placeholder moon behind cloud opacity.
+- [x] Add clear/cloudy night controls and retain reproducible seeds.
+- [x] Finish build, shader/capture/control verification; prepare the review commit.
+- [ ] User visual validation; only then consider production integration.
+
+The celestial arc is deliberately artistic. Moon phase/position and the starfield
+are placeholders, not astronomical data. Existing production files remain unchanged.
+
+
+### Second-iteration verification
+
+- Build and JS syntax checks passed; no whitespace errors.
+- Six unit tests passed: seeded fields, smooth gusts, horizon exclusion for both
+  lenses, upper-third placement, continuous left/right transitions, snow extinction.
+- All nine presets rendered with no JavaScript/shader errors in offscreen
+  Electron 44 / SwiftShader at 1316 × 1396 (`--quality=low`, seed 17).
+- Scene selection, sliders, pause/resume, frozen cloud offsets, framing without
+  reseeding, overlay, hidden controls and 850 × 900 resize passed.
+- Inspected clear/cloudy night and both snow captures. Clear sky shows stars and
+  the moon; cloud opacity hides them in the cloudy preset. Refined star halos,
+  grey snow depth and flake/background colour-space consistency. Rebuilt and
+  captured the final blizzard shader successfully after those adjustments.
+- Native atmosphere/cloud illumination still has the previously documented
+  SwiftShader limitation. Real GPU lighting, animation smoothness and final visual
+  approval remain with the user. There are no production-app changes.

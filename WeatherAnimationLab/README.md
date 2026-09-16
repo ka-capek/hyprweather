@@ -18,12 +18,15 @@ Electron stores its profile in this directory's `.electron-profile/`.
 
 Available studies:
 
-1. **Sunset** — warm horizon, layered volumetric clouds, changing light.
+1. **Sunset** — warm upper-sky light, layered volumetric clouds, changing light.
 2. **Sunrise** — lighter cloud cover and low morning sunlight.
 3. **Thunderstorm** — dark clouds, wind-driven rain, procedural lightning.
-4. **Snowfall** — soft winter light, restrained particle depth.
+4. **Light snow** — warm, soft sunlight and fine flakes fading into the distance.
 5. **Fog** — overlapping, slowly drifting veils and a cloud/bands icon.
 6. **Strong wind** — faster, gusting cloud movement and a curled-airflow icon.
+7. **Heavy snow** — dense snow, grey depth veil and no visible sun.
+8. **Starry night** — varied stars, gentle twinkling and a luminous placeholder moon.
+9. **Cloudy night** — the same night sky behind moving volumetric clouds.
 
 The sun elevation and cloud cover sliders interpolate smoothly. “Play sunset” /
 “Play sunrise” moves the sun through twilight; it stops at the end rather than
@@ -31,8 +34,8 @@ looping abruptly. These are development controls, not intended for the final app
 
 | Control | Action |
 | --- | --- |
-| `1`–`6` | Choose a scene |
-| `V` | Compare layered composition with the previous wide view |
+| `1`–`9` | Choose a scene |
+| `V` | Compare layered composition with a wider sky-only view |
 | `H` | Hide/show all lab controls |
 | `U` | Show/hide a simple sample weather overlay |
 | `Space` | Pause/resume animation time |
@@ -68,7 +71,7 @@ installed from the lockfile on first launch.
 ```
 
 Verification uses Electron's offscreen GPU mode so it does not rearrange desktop
-windows. It captures all six scenes and a lightning frame in `captures/`, logs
+windows. It captures all nine scenes and a lightning frame in `captures/`, logs
 renderer identity, dimensions, FPS, program/texture counts and console errors.
 It also checks the basic development controls. The capture frame rate is capped
 at 60 FPS; it is not a claim of uncapped renderer throughput.
@@ -88,9 +91,15 @@ cd WeatherAnimationLab
 
 Start with sunset, press **H** to inspect the whole sky, then **V** to compare
 composition without changing the cloud field. The default uses a narrower lens
-and pushes the horizon to the lower edge; the renderer still uses lit volumes.
-**5 / 6** select fog / strong wind, **U** shows the sample overlay and its icon.
-Watch each for 30–60 seconds, especially a transition from wind to snowfall.
+and excludes the horizon entirely in both views; no ground is drawn. A smooth
+navy fade starts around 43% height and darkens the lower panels.
+**4 / 7** compare light / heavy snow; **8 / 9** compare clear / cloudy night.
+**5 / 6** select fog / strong wind; **U** shows the sample weather overlay.
+Watch each for 30–60 seconds. Check that distant snow blends into the grey veil,
+that only a few soft near flakes pass by, and that moving clouds hide the stars.
+The `Light / time` slider moves the sun/moon along an upper, off-centre arc.
+This is deliberate lab art direction, not a real astronomical position. The
+moon is a glowing procedural placeholder; real phase and ephemerides come later.
 
 Every launch samples a fresh cloud field. Scene changes preserve its positions;
 weather, shape and detail drift continuously with slowly varying gusts.
@@ -101,7 +110,7 @@ or start a repeatable comparison explicitly:
 ./run.sh --seed=17
 ./run.sh --seed=17 --view=wide
 ./run.sh --verify --seed=17
-node --test motion.test.js
+node --test motion.test.js composition.test.js
 ```
 
 A seed reproduces initial cloud and particle fields. Captures at different elapsed
@@ -109,9 +118,9 @@ times or after different interactions are not pixel-identical recordings.
 
 ### Current local verification limit
 
-Build, six-scene controls, pause/offset continuity, framing and resize checks pass.
+See TASKS.md for the current build and offscreen verification results.
 The available headless SwiftShader backend renders the atmospheric volume black,
-including the original pre-change code. Fog and UI captures work; cloud appearance
+including the original pre-change code. Custom celestial, fog and UI captures work; cloud appearance
 and real-time motion still require your hardware check. These tests do **not**
 certify GPU performance or final visual quality. `--quality=low` is available for
 software diagnostic runs only; normal launch remains high quality.
@@ -124,6 +133,13 @@ software diagnostic runs only; normal launch remains high quality.
   sun angle. This is not yet a time/date-driven astronomical simulation.
 - Cloud density, height, lighting and motion interpolate across scene changes.
 - Instanced GPU rain and snow in camera space, with stable seeded particle attributes.
+  Rain and snow have independent trajectories during transitions. Only 0.25% of
+  snow slots are close flakes; distance attenuates contrast and adds fog colour.
+- Sun, moon and seeded procedural stars are drawn before the cloud composite.
+  Cloud transmittance masks celestial light, including halos. Stars have varied
+  brightness/colour and small independent twinkle; they are not an astronomical map.
+- Snow uses the same projected light location/colour and grey veil as the scene.
+  Heavy snow extinguishes direct sunlight and increases distance extinction.
 - The night study uses an artistic low-intensity directional cloud light. The physical
   atmospheric sun remains below the horizon, followed by a cool display-space grade.
 - Lightning currently combines a procedural visible path with a spatial light pulse in
@@ -133,15 +149,15 @@ software diagnostic runs only; normal launch remains high quality.
 
 This is a first animated study, not the final visual quality or full weather catalog.
 
-- Inspect cloud texture detail, temporal reconstruction, low-sun colors and the horizon
+- Inspect cloud texture detail, temporal reconstruction, low-sun colors and transitions
   in motion. The underlying library is beta; sparse clouds can smear during changes.
 - Cloud light-shaft rendering is disabled in this study; cloud self-shadowing
   remains enabled with one shadow cascade. The initial equatorial test camera
   produced visible cloud-mapping seams; these disappeared at the Prague camera.
 - Night clouds, lightning branching/illumination, flake shapes and precipitation
   density still need art direction. No glass droplets have been added.
-- Earth/horizon presentation must eventually fit behind the approved weather panels.
-- Moon rendering is disabled until phase, date and visibility are connected correctly.
+- The entire camera frustum stays above the horizon; ground rendering is disabled.
+- The moon is a lab-only placeholder, not the actual phase or position.
 - Before production integration: map all 28 Open-Meteo codes and continuous modifiers,
   drive the solar cycle from real coordinates/time, and extend the weather families.
 - Do not transfer code or assets into WeatherApp until the user coordinates that step.

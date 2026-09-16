@@ -2,7 +2,7 @@
 * { box-sizing: border-box; }
 html, body { margin: 0; width: 100%; height: 100%; overflow: hidden; background: #141d2c; }
 #scene, #scene canvas, .vignette { position: absolute; inset: 0; width: 100%; height: 100%; }
-.vignette { z-index: 1; pointer-events: none; background: linear-gradient(0deg,rgba(9,13,24,.90),rgba(9,13,24,.4) 18%,transparent 43%,transparent 87%,rgba(9,13,24,.16)); }
+.vignette { z-index: 1; pointer-events: none; background: linear-gradient(to bottom,transparent 0%,transparent 43%,rgba(5,12,25,.12) 53%,rgba(5,12,25,.48) 70%,rgba(3,8,19,.85) 88%,rgba(2,6,15,.98) 100%); }
 .chrome, #weather { z-index: 2; }
 .lab-header { position: absolute; top: 29px; left: 34px; right: 30px; display: flex; justify-content: space-between; align-items: center; font-size: 10px; letter-spacing: 2.8px; color: #f9eee4b3; }
 .lab-header i { font-style: normal; margin: 0 12px; opacity: .4; }
@@ -51,3 +51,8 @@ kbd { font: inherit; border: 1px solid #fff2; border-radius: 4px; padding: 2px 5
 .weather-icon { display: block; width: 48px; height: 48px; margin: 14px auto 0; color: #edf3fa; }
 @media(max-width: 850px) { .controls { flex-wrap: wrap; } .controls label { flex-basis: 40%; } h1 { font-size: 28px; } footer { line-height: 1.7; } }
 @media(max-height: 800px) { .dock { bottom: 15px; } .study-heading { margin-bottom: 12px; } #presets button { padding: 10px; } .controls { margin-top: 12px; padding-top: 12px; } footer { margin-top: 12px; } #weather { top: 13%; } #temperature { font-size: 100px; } }
+
+.blizzard { background: radial-gradient(ellipse at 65% 30%,#bcc6cf,#617183 75%); }
+.night { background: radial-gradient(circle at 70% 25%,#eff5ff 2px,transparent 5px),radial-gradient(circle at 30% 60%,#b9d8ff 1px,transparent 2px),linear-gradient(#07102b,#283655); }
+.cloudy-night { background: radial-gradient(ellipse at 25% 60%,#74849b,transparent 60%),linear-gradient(#091128,#374559); }
+#presets small { color: #fff4e2ae; }

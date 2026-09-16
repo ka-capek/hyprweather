@@ -53,3 +53,12 @@ Original SVG paths in `index.html`, authored for this project; no SF Symbols or
 Apple artwork is bundled. Visual vocabulary reference:
 https://support.apple.com/en-lamr/guide/iphone/iph4305794fb/ios
 The fog veil shader and seeded motion helpers are original project code.
+
+
+## Celestial and snowfall study
+
+`celestial.js` and `composition.js` are original procedural code. Stars are a
+seeded artistic field, not a catalogue; the moon is an original noise-shaded
+placeholder. No Apple, photographic or downloaded lunar/star textures were added.
+The previous `stars.bin` remains in the historical asset directory but this
+iteration does not load it. New snow lighting/fog shaders are original code.

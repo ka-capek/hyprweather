@@ -1,8 +1,10 @@
 import * as THREE from 'three';
 import { EffectComposer, RenderPass, EffectPass, ToneMappingEffect, ToneMappingMode, BloomEffect, Effect } from 'postprocessing';
-import { SkyMaterial, PrecomputedTexturesLoader, AerialPerspectiveEffect, StarsGeometry, StarsMaterial } from '@takram/three-atmosphere';
+import { SkyMaterial, PrecomputedTexturesLoader, AerialPerspectiveEffect } from '@takram/three-atmosphere';
 import { CloudsEffect } from '@takram/three-clouds';
 import { STBNLoader, Geodetic, Ellipsoid } from '@takram/three-geospatial';
+import { CelestialSky } from './celestial.js';
+import { framingSettings, lightComposition } from './composition.js';
 import { Precipitation } from './precipitation.js';
 import { createRandom, createCloudField, cloudVelocity } from './motion.js';
 
@@ -23,14 +25,20 @@ const presets = {
   sunset: { title: 'The last light', index: '01', elevation: -.9, azimuth: -12, coverage: .28, exposure: 10, wind: 12, rain: 0, snow: 0, night: 0, temp: 21, condition: 'Partly cloudy', density: .1, height: 750 },
   sunrise: { title: 'Before the world wakes', index: '02', elevation: 2, azimuth: 18, coverage: .17, exposure: 9, wind: 7, rain: 0, snow: 0, night: 0, temp: 14, condition: 'Mostly clear', density: .065, height: 550 },
   storm: { title: 'A sky coming undone', index: '03', elevation: -10, azimuth: -12, coverage: .48, exposure: 1.6, wind: 44, rain: 1, snow: 0, night: 1, temp: 18, condition: 'Thunderstorms', density: .14, height: 1500 },
-  snow: { title: 'The quiet hours', index: '04', elevation: 1, azimuth: 24, coverage: .4, exposure: 6, wind: 10, rain: 0, snow: 1, night: .22, temp: -3, condition: 'Snow showers', density: .1, height: 1000 },
+  snow: { title: 'The quiet hours', index: '04', elevation: 1, azimuth: 24, coverage: .4, exposure: 6, wind: 10, rain: 0, snow: .28, night: 0, temp: -3, condition: 'Light snow', density: .1, height: 1000 },
 };
 presets.fog = { title: 'Everything slows down', index: '05', elevation: 5, azimuth: 8, coverage: .6, exposure: 5, wind: 4, rain: 0, snow: 0, night: 0, temp: 8, condition: 'Fog', density: .08, height: 550 };
 presets.wind = { title: 'The restless sky', index: '06', elevation: 12, azimuth: -15, coverage: .32, exposure: 8, wind: 65, rain: 0, snow: 0, night: 0, temp: 16, condition: 'Strong wind', density: .08, height: 750 };
-for (const [name, preset] of Object.entries(presets)) preset.fog = name === 'fog' ? 1 : 0;
+presets.blizzard = { title: 'Lost in the snowfall', index: '07', elevation: 3, azimuth: 15, coverage: .98, exposure: 3.8, wind: 38, rain: 0, snow: 1, night: 0, temp: -7, condition: 'Heavy snow', density: .17, height: 650 };
+presets.night = { title: 'A thousand quiet lights', index: '08', elevation: -12, azimuth: 14, coverage: .06, exposure: 1.4, wind: 5, rain: 0, snow: 0, night: 1, temp: 9, condition: 'Clear night', density: .055, height: 750 };
+presets['cloudy-night'] = { ...presets.night, title: 'Moonlight between clouds', index: '09', coverage: .62, wind: 16, density: .12, condition: 'Cloudy night' };
+for (const [name, preset] of Object.entries(presets)) {
+  preset.fog = name === 'fog' ? 1 : 0;
+  preset.blizzard = name === 'blizzard' ? 1 : 0;
+}
 let key = 'sunset', current, target, paused = false, cycle = false, frames = 0, elapsed = 0, fps = 0;
 let flashAge = 99, nextFlash = 6, boltPoints = [];
-let renderer, camera, composer, clouds, skyMaterial, atmosphere, particles, grade, bloom, starsMaterial, stars;
+let renderer, camera, composer, clouds, skyMaterial, atmosphere, particles, grade, bloom, celestial;
 let localFrame;
 
 // A restrained display-space grade, plus a spatial lightning pulse. Weather
@@ -38,7 +46,8 @@ let localFrame;
 class WeatherGrade extends Effect {
   constructor() {
     super('WeatherGrade', `
-      uniform float nightAmount, flashAmount, fogAmount, motionTime;
+      uniform float nightAmount, flashAmount, fogAmount, motionTime, snowHaze;
+      uniform vec3 snowFogColor;
       uniform vec2 fogDrift;
       float hash(vec2 p) { return fract(sin(dot(p,vec2(127.1,311.7)))*43758.5453); }
       float noise2(vec2 p) {
@@ -59,10 +68,13 @@ class WeatherGrade extends Effect {
         float veil=.65*noise2(fp)+.35*noise2(fp*2.1+vec2(8.,motionTime*.007));
         vec3 fogColor=mix(vec3(.44,.52,.60),vec3(.68,.73,.77),uv.y);
         color=mix(color,fogColor,fogAmount*(.76+veil*.18));
+        // Distant snowfall extinguishes the sky before foreground flakes are drawn.
+        float snowVeil=clamp(snowHaze*(.92+.08*veil),0.,.98);
+        color=mix(color,snowFogColor,snowVeil);
         float noise = fract(sin(dot(uv*vec2(1316.,1396.),vec2(12.9898,78.233)))*43758.5453)-.5;
         color += noise/255.;
         outColor = vec4(color,c.a);
-      }`, { uniforms: new Map([['fogAmount', new THREE.Uniform(0)], ['motionTime', new THREE.Uniform(0)], ['fogDrift', new THREE.Uniform(new THREE.Vector2(random()*100, random()*100))], ['nightAmount', new THREE.Uniform(0)], ['flashAmount', new THREE.Uniform(0)], ['flashPosition', new THREE.Uniform(new THREE.Vector2(.7,.65))]]) });
+      }`, { uniforms: new Map([['snowHaze', new THREE.Uniform(0)], ['snowFogColor', new THREE.Uniform(new THREE.Color(.39,.44,.51))], ['fogAmount', new THREE.Uniform(0)], ['motionTime', new THREE.Uniform(0)], ['fogDrift', new THREE.Uniform(new THREE.Vector2(random()*100, random()*100))], ['nightAmount', new THREE.Uniform(0)], ['flashAmount', new THREE.Uniform(0)], ['flashPosition', new THREE.Uniform(new THREE.Vector2(.7,.65))]]) });
   }
 }
 
@@ -103,6 +115,7 @@ function setScene(name, immediate = false) {
   $('sun').value = target.elevation;
   $('clouds').value = target.coverage;
   $('cycle').textContent = name === 'sunrise' || name === 'snow' ? 'Play sunrise' : 'Play sunset';
+  if (name === 'night' || name === 'cloudy-night') $('cycle').textContent = 'Move moon';
   document.querySelectorAll('[data-scene]').forEach(button => button.classList.toggle('active', button.dataset.scene === name));
   updateLabels();
   flashAge = 99;
@@ -129,10 +142,12 @@ function triggerFlash() {
 
 function applyFraming() {
   const flat = framing === 'flat';
-  camera.fov = flat ? 38 : 58;
-  const tilt = rad(flat ? 16 : 18);
+  const settings = framingSettings(framing);
+  camera.fov = settings.fov;
+  const tilt = rad(settings.tilt);
   camera.lookAt(camera.position.clone().add(new THREE.Vector3(0,Math.cos(tilt),Math.sin(tilt)).transformDirection(localFrame).multiplyScalar(10000)));
   camera.updateProjectionMatrix();
+  camera.updateMatrixWorld(true);
   $('framing').textContent = flat ? 'View: layered' : 'View: wide';
   $('framing').setAttribute('aria-pressed', String(flat));
 }
@@ -150,21 +165,16 @@ async function init() {
   localFrame=Ellipsoid.WGS84.getEastNorthUpFrame(camera.position);
   applyFraming();
   const scene = new THREE.Scene();
-  const [textures, weather, shape, detail, turbulence, stbn, starBytes] = await Promise.all([
+  const [textures, weather, shape, detail, turbulence, stbn] = await Promise.all([
     new PrecomputedTexturesLoader({ format: 'binary', combinedScattering: true, higherOrderScattering: true }).loadAsync('./atmosphere'),
     texture2D('./clouds/local_weather.png'), texture3D('./clouds/shape.bin',128), texture3D('./clouds/shape_detail.bin',32),
     texture2D('./clouds/turbulence.png'), new STBNLoader().loadAsync('./clouds/stbn.bin'),
-    fetch('./atmosphere/stars.bin').then(r=>r.arrayBuffer()),
   ]);
-  skyMaterial = new SkyMaterial({ ...textures, ground: true, groundAlbedo: new THREE.Color(.015,.017,.02), moon: false, sunAngularRadius: .008 });
+  skyMaterial = new SkyMaterial({ ...textures, ground: false, sun: false, groundAlbedo: new THREE.Color(.015,.017,.02), moon: false, sunAngularRadius: .008 });
   const sky = new THREE.Mesh(new THREE.PlaneGeometry(2,2), skyMaterial);
   sky.frustumCulled = false;
   scene.add(sky);
-  starsMaterial = new StarsMaterial({ ...textures });
-  starsMaterial.intensity = 2;
-  stars = new THREE.Points(new StarsGeometry(starBytes), starsMaterial);
-  stars.frustumCulled = false;
-  scene.add(stars);
+  celestial = new CelestialSky(scene, seed);
   clouds = new CloudsEffect(camera);
   Object.assign(clouds, textures);
   clouds.localWeatherTexture = weather; clouds.shapeTexture = shape; clouds.shapeDetailTexture = detail;
@@ -200,7 +210,7 @@ async function init() {
   grade = new WeatherGrade();
   composer.addPass(new EffectPass(camera,grade));
   particles = new Precipitation(renderer, createRandom(seed ^ 0x9e3779b9));
-  setScene(params.get('scene') || 'sunset',true);
+  setScene(presets[params.get('scene')] ? params.get('scene') : 'sunset',true);
   window.addEventListener('resize',()=>{
     camera.aspect = innerWidth/innerHeight; camera.updateProjectionMatrix();
     renderer.setSize(innerWidth,innerHeight); composer.setSize(innerWidth,innerHeight); particles.resize(innerWidth,innerHeight);
@@ -211,7 +221,7 @@ async function init() {
       requestAnimationFrame(resolve);
     })),
     diagnostics:()=>({ frames, fps:Math.round(fps), errors, scroll:document.documentElement.scrollHeight>innerHeight || document.documentElement.scrollWidth>innerWidth,
-      width:innerWidth,height:innerHeight,scene:key,seed,framing,cloudOffset:clouds.localWeatherOffset.toArray(),shapeOffset:clouds.shapeOffset.toArray(),renderer:renderer.getContext().getParameter(renderer.getContext().getExtension('WEBGL_debug_renderer_info')?.UNMASKED_RENDERER_WEBGL || renderer.getContext().RENDERER),
+      width:innerWidth,height:innerHeight,scene:key,seed,framing,horizonClearance:framingSettings(framing).tilt-camera.fov/2,light:lightComposition(current.elevation,current.azimuth,current.night,current.blizzard,current.snow),snow:current.snow,blizzard:current.blizzard,night:current.night,cloudOffset:clouds.localWeatherOffset.toArray(),shapeOffset:clouds.shapeOffset.toArray(),renderer:renderer.getContext().getParameter(renderer.getContext().getExtension('WEBGL_debug_renderer_info')?.UNMASKED_RENDERER_WEBGL || renderer.getContext().RENDERER),
       textures:renderer.info.memory.textures,programs:renderer.info.programs.length,paused,elapsed }) };
   $('loading').classList.add('hidden');
   let previous=performance.now(), sampleStart=previous, sampleFrames=0;
@@ -220,24 +230,25 @@ async function init() {
     if (!paused) {
       elapsed+=dt;
       if(cycle) {
-        const direction=key==='sunrise'||key==='snow'?1:-1;
+        const direction=['sunrise','snow','night','cloudy-night'].includes(key)?1:-1;
         target.elevation+=direction*dt*.18;
         if(target.elevation>12 || target.elevation< -12) { cycle=false; $('cycle').setAttribute('aria-pressed',false); }
         $('sun').value=target.elevation;updateLabels();
       }
-      for(const field of ['elevation','azimuth','coverage','exposure','wind','rain','snow','night','density','height','fog'])
+      for(const field of ['elevation','azimuth','coverage','exposure','wind','rain','snow','night','density','height','fog','blizzard'])
         current[field]=THREE.MathUtils.damp(current[field],target[field],1.25,dt);
       if(key==='storm'&&elapsed>nextFlash) { triggerFlash();nextFlash=elapsed+7+random()*11; }
       if(!window.lab.freezeFlash) flashAge+=dt;
     }
     const flash = flashAge<.8 ? (Math.exp(-flashAge*12)+.65*Math.exp(-Math.pow((flashAge-.17)*25,2))) : 0;
+    const light = lightComposition(current.elevation,current.azimuth,current.night,current.blizzard,current.snow);
     const elev=rad(current.elevation), az=rad(current.azimuth);
     const sun=new THREE.Vector3(Math.sin(az)*Math.cos(elev),Math.cos(az)*Math.cos(elev),Math.sin(elev)).transformDirection(localFrame);
-    skyMaterial.sunDirection.copy(sun); atmosphere.sunDirection.copy(sun); starsMaterial.sunDirection.copy(sun);
-    stars.visible=current.elevation < -4;
+    skyMaterial.sunDirection.copy(sun); atmosphere.sunDirection.copy(sun);
     // Night storm: use an artistic low-intensity overhead illumination on the
     // cloud volume; the astronomical sky remains at the actual lab sun angle.
-    clouds.sunDirection.copy(sun).lerp(new THREE.Vector3(-.7,.69,.15).transformDirection(localFrame),current.night).normalize();
+    const moonDirection = new THREE.Vector3(light.x*2-1,light.y*2-1,.5).unproject(camera).sub(camera.position).normalize();
+    clouds.sunDirection.copy(sun).lerp(moonDirection,current.night).normalize();
     clouds.skyLightScale=THREE.MathUtils.lerp(1,.22,current.night);
     clouds.coverage=current.coverage;
     clouds.cloudLayers[0].densityScale=current.density;
@@ -247,13 +258,17 @@ async function init() {
     clouds.localWeatherVelocity.set(velocity.x*.000025,velocity.y*.000025);
     clouds.shapeVelocity.set(velocity.x*.00015,velocity.y*.00015,.000025*current.wind);
     clouds.shapeDetailVelocity.set(velocity.x*.00019,velocity.y*.00019,.000037*current.wind);
+    celestial.update(elapsed,current,light,innerWidth,innerHeight);
+    const snowFog = new THREE.Color().setRGB(.39+light.warmth*.045*(1-current.blizzard)-current.blizzard*.19,.44-current.blizzard*.20,.51-light.warmth*.045*(1-current.blizzard)-current.blizzard*.205);
+    grade.uniforms.get('snowHaze').value=light.haze;
+    grade.uniforms.get('snowFogColor').value.copy(snowFog);
     renderer.toneMappingExposure=current.exposure;
     grade.uniforms.get('fogAmount').value=current.fog;
     grade.uniforms.get('motionTime').value=elapsed;
-    grade.uniforms.get('nightAmount').value=current.night*.94;
+    grade.uniforms.get('nightAmount').value=current.night*.58;
     grade.uniforms.get('flashAmount').value=flash;
     composer.render(paused?0:dt);
-    particles.render(elapsed,current.rain,current.snow,current.wind,flash);
+    particles.render(elapsed,current.rain,current.snow,current.wind,flash,light,snowFog,current.blizzard);
     frames++;sampleFrames++;
     if(now-sampleStart>1000){fps=sampleFrames*1000/(now-sampleStart);$('fps').textContent=`${Math.round(fps)} FPS · WEBGL2`;sampleStart=now;sampleFrames=0;}
   });
@@ -269,7 +284,7 @@ $('cycle').addEventListener('click',()=>{cycle=!cycle;$('cycle').setAttribute('a
 $('close').addEventListener('click',()=>window.close());
 window.addEventListener('keydown',e=>{
   if(e.target instanceof HTMLInputElement) return;
-  if(['1','2','3','4','5','6'].includes(e.key))setScene(Object.keys(presets)[+e.key-1]);
+  if(['1','2','3','4','5','6','7','8','9'].includes(e.key))setScene(Object.keys(presets)[+e.key-1]);
   if(e.key.toLowerCase()==='h')document.body.classList.toggle('clean');
   if(e.key.toLowerCase()==='u')toggleOverlay();
   if(e.code==='Space'){e.preventDefault();togglePause();}

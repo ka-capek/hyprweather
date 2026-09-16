@@ -58,7 +58,7 @@ app.whenReady().then(async () => {
         if (Date.now() > deadline) throw new Error('Renderer startup timeout');
         await new Promise(resolve => setTimeout(resolve, 500));
       }
-      const scenes = suite ? ['sunset', 'sunrise', 'storm', 'snow', 'fog', 'wind'] : [initial];
+      const scenes = suite ? ['sunset', 'sunrise', 'storm', 'snow', 'fog', 'wind', 'blizzard', 'night', 'cloudy-night'] : [initial];
       for (const scene of scenes) {
         const previousFrames = await win.webContents.executeJavaScript('window.lab.diagnostics().frames');
         await win.webContents.executeJavaScript(`window.lab.setScene(${JSON.stringify(scene)}, true)`);
@@ -70,7 +70,7 @@ app.whenReady().then(async () => {
         }
         const result = await win.webContents.executeJavaScript('window.lab.diagnostics()');
         console.log(JSON.stringify({ scene, ...result }));
-        if (result.errors.length || result.scroll || result.frames <= previousFrames + 2) throw new Error('Scene verification failed');
+        if (result.horizonClearance <= 0 || result.errors.length || result.scroll || result.frames <= previousFrames + 2) throw new Error('Scene verification failed');
         const target = suite ? path.join(root, 'captures', `${scene}.png`) : path.resolve(root, capture);
         fs.mkdirSync(path.dirname(target), { recursive: true });
         fs.writeFileSync(target, (await freshPaint()).toPNG());
@@ -116,7 +116,7 @@ app.whenReady().then(async () => {
         await new Promise(resolve => setTimeout(resolve, 700));
         const resized = await win.webContents.executeJavaScript('window.lab.diagnostics()');
         if (resized.width !== 850 || resized.height !== 900 || resized.scroll || resized.errors.length) throw new Error('Resize failed');
-        console.log('Controls verified: six scenes, sliders, frozen cloud drift, pause/resume, overlay, framing, clean view, resize');
+        console.log('Controls verified: nine scenes, sliders, frozen cloud drift, pause/resume, overlay, framing, clean view, resize');
       }
       console.log('GPU', JSON.stringify(app.getGPUFeatureStatus()));
       app.quit();
