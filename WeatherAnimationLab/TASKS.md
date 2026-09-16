@@ -90,5 +90,5 @@ are placeholders, not astronomical data. Existing production files remain unchan
 - [x] Opravit chybějící ovládání den/noc, odstranit nepoužitý shaderový čas a nevyužívané argumenty částic.
 - [x] Přeskočit výpočty vrstev mlhy bez mlhy/sněhu; znovu používat vektory a barvu ve smyčce.
 - [x] Regrese dat: částečně chybějící srážky, nulová zeměpisná šířka, obnova po výpadku, explicitní mock parametr.
-- [ ] Napojit animace do hlavní aplikace a sjednotit absolutní časy předpovědi pro různá časová pásma.
-- [ ] feat: UI změny aktivního města — až na konci.
+- [x] Napojit animace do hlavní aplikace a sjednotit absolutní časy předpovědi pro různá časová pásma.
+- [x] UI změny aktivního města v hlavní aplikaci, persistence a návrat na IP.

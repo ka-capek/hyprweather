@@ -20,10 +20,7 @@ export class Precipitation {
     this.rainMesh=new THREE.Mesh(geometry,this.rainMaterial);
     this.snowMesh=new THREE.Mesh(geometry,this.snowMaterial);
     for(const mesh of [this.rainMesh,this.snowMesh]) { mesh.frustumCulled=false;this.scene.add(mesh); }
-    this.boltScene=new THREE.Scene();this.boltCamera=new THREE.OrthographicCamera(0,1,1,0,-1,1);
-    this.bolt=new THREE.Mesh(new THREE.BufferGeometry(),new THREE.MeshBasicMaterial({color:0xe4eaff,transparent:true,opacity:0,depthTest:false,toneMapped:false,side:THREE.DoubleSide}));
-    this.boltGlow=new THREE.Mesh(new THREE.BufferGeometry(),new THREE.MeshBasicMaterial({color:0x829fff,transparent:true,opacity:0,depthTest:false,toneMapped:false,side:THREE.DoubleSide,blending:THREE.AdditiveBlending}));
-    this.boltScene.add(this.boltGlow,this.bolt);
+
   }
   makeMaterial(kind) {
     return new THREE.ShaderMaterial({
@@ -83,30 +80,6 @@ export class Precipitation {
       transparent:true,depthTest:false,depthWrite:false,toneMapped:false,
     });
   }
-  setBolt(points){
-    const paths=[points];
-    for(const start of [3,6,9]) {
-      let {x,y}=points[start];const branch=[{x,y}];
-      const sign=start===6?-1:1;
-      for(let i=0;i<5;i++){x+=sign*(.008+this.random()*.018);y+=.01+this.random()*.021;branch.push({x,y});}
-      paths.push(branch);
-    }
-    const makeGeometry=width=>{
-      const data=[];
-      for(const path of paths)for(let i=1;i<path.length;i++){
-        const a=path[i-1],b=path[i];
-        const dx=(b.x-a.x)*innerWidth,dy=(b.y-a.y)*innerHeight;
-        const len=Math.hypot(dx,dy)||1;
-        const nx=-dy/len*width/innerWidth,ny=dx/len*width/innerHeight;
-        const p=[a.x+nx,1-a.y-ny,0,a.x-nx,1-a.y+ny,0,b.x+nx,1-b.y-ny,0,
-          a.x-nx,1-a.y+ny,0,b.x-nx,1-b.y+ny,0,b.x+nx,1-b.y-ny,0];
-        data.push(...p);
-      }
-      return new THREE.BufferGeometry().setAttribute('position',new THREE.Float32BufferAttribute(data,3));
-    };
-    this.bolt.geometry.dispose();this.boltGlow.geometry.dispose();
-    this.bolt.geometry=makeGeometry(1.1);this.boltGlow.geometry=makeGeometry(4);
-  }
   resize(w,h){
     this.camera.aspect=w/h;this.camera.updateProjectionMatrix();
     for(const material of [this.rainMaterial,this.snowMaterial])material.uniforms.aspect.value=w/h;
@@ -127,7 +100,6 @@ export class Precipitation {
     this.rainMesh.visible=rain>.001;this.snowMesh.visible=snow>.001;
     const clear=this.renderer.autoClear;this.renderer.autoClear=false;
     if(rain+snow>.001)this.renderer.render(this.scene,this.camera);
-    if(flash>.03){this.bolt.material.opacity=Math.min(1,flash);this.boltGlow.material.opacity=flash*.1;this.renderer.render(this.boltScene,this.boltCamera);}
     this.renderer.autoClear=clear;
   }
 }

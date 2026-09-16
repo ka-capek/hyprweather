@@ -11,9 +11,11 @@ Linuxová weather aplikace zaměřená na atmosféru a animované pozadí.
 |---|---|
 | Cílový rozměr okna | 1316 × 1396 px |
 | Předpověď | Open-Meteo, bez klíče, obnova po 10 min |
-| Poloha | podle IP (geojs.io, záloha ipwho.is) |
+| Poloha | podle IP nebo ručně vybrané město |
 | Pozadí | animovaná obloha podle aktuálních dat |
 | Animace a zvuk | animace zapojené, zvuk zatím není |
+
+Kliknutím na název města otevřeš vyhledávání. Volba se pamatuje; `Use current location` vrátí polohu podle IP. Časy předpovědi odpovídají vybranému městu.
 
 Data se ukládají, takže po restartu je hned co ukázat. Bez sítě zůstane poslední
 známá předpověď a popisek se přepne na `Offline · last update …` — smyšlená data

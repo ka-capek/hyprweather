@@ -1,11 +1,14 @@
 import * as THREE from 'three';
+import {siderealAngle} from './sidereal.js';
 
 // This pass belongs INSIDE the sky scene, before the volumetric-cloud composite.
 // Cloud transmittance therefore hides stars and the complete moon halo together.
 export class CelestialSky {
-  constructor(scene, seed) {
+  constructor(scene, seed, starMap) {
     this.material = new THREE.ShaderMaterial({
       uniforms: {
+        starMap:{value:starMap},sidereal:{value:0},
+        projectionInverse:{value:new THREE.Matrix4()},cameraRotation:{value:new THREE.Matrix3()},
         viewport: { value: new THREE.Vector4(0,0,1,1) }, time: { value: 0 }, night: { value: 0 },
         seed: { value: (seed % 10000) / 100 }, pixel: { value: 1 / 1396 },
         lightPosition: { value: new THREE.Vector2(.74, .78) },
@@ -15,24 +18,16 @@ export class CelestialSky {
       vertexShader: `void main(){gl_Position=vec4(position.xy,1.,1.);}`,
       fragmentShader: `
         uniform vec4 viewport;
+        uniform sampler2D starMap;
+        uniform mat4 projectionInverse;
+        uniform mat3 cameraRotation;
+        uniform float sidereal;
         uniform float time, night, seed, pixel, sunAmount, moonAmount, warmth, snowAmount;
         uniform vec2 lightPosition;
         float hash(vec2 p){return fract(sin(dot(p,vec2(127.1,311.7))+seed)*43758.5453);}
         float noise(vec2 p){
           vec2 i=floor(p),f=fract(p);f=f*f*(3.-2.*f);
           return mix(mix(hash(i),hash(i+vec2(1,0)),f.x),mix(hash(i+vec2(0,1)),hash(i+1.),f.x),f.y);
-        }
-        vec3 starLayer(vec2 p,float cells,float keep,float size){
-          vec2 grid=p*cells, cell=floor(grid);
-          float h=hash(cell+cells);
-          vec2 center=.2+.6*vec2(hash(cell+3.),hash(cell+8.));
-          vec2 d=(fract(grid)-center)/cells;
-          float radius=pixel*size*(.65+.6*h);
-          float core=exp(-dot(d,d)/(radius*radius));
-          float halo=exp(-length(d)/(radius*2.8))*.045;
-          float twinkle=.91+.055*sin(time*(.7+h)+h*72.)+.035*sin(time*1.73+h*31.);
-          vec3 tint=mix(vec3(.64,.79,1.),vec3(1.,.83,.65),hash(cell+17.));
-          return tint*(core+halo)*step(1.-keep,h)*twinkle;
         }
         void main(){
           // Use the active render target, not cached DOM dimensions/interpolated UVs.
@@ -41,12 +36,15 @@ export class CelestialSky {
           vec2 d=p-lightPosition*vec2(viewport.z/viewport.w,1.);
           float r=length(d);
           vec3 base=mix(vec3(.012,.025,.058),vec3(.003,.008,.025),screen.y);
-          // Restrained diffuse star band; stars themselves remain crisp and varied.
-          float band=exp(-pow((p.x*.6+p.y-.84)*3.5,2.));
-          base+=vec3(.011,.014,.025)*band*noise(p*9.);
-          vec3 stars=starLayer(p,65.,.19,.4)*1.1
-                    +starLayer(p+9.,38.,.1,.65)*1.9
-                    +starLayer(p+27.,19.,.04,1.)*3.;
+          vec3 stars=vec3(0.);
+          if(night>.001){
+            vec4 viewRay=projectionInverse*vec4(screen*2.-1.,1.,1.);
+            vec3 earthRay=normalize(cameraRotation*viewRay.xyz);
+            float ra=atan(earthRay.y,earthRay.x)+sidereal;
+            vec2 mapUv=vec2(fract(.5-ra/6.28318530718),asin(clamp(earthRay.z,-1.,1.))/3.14159265359+.5);
+            stars=texture2D(starMap,mapUv).rgb*3.2;
+            stars*=.97+.03*sin(time*1.1+hash(floor(mapUv*8192.))*60.);
+          }
           float moonRadius=.027;
           float disk=1.-smoothstep(moonRadius-pixel,moonRadius+pixel,r);
           float relief=.78+.12*noise(d*440.)+.1*noise(d*930.);
@@ -73,9 +71,12 @@ export class CelestialSky {
     };
     scene.add(this.mesh);
   }
-  update(time, state, light) {
+  update(time, state, light, camera, now) {
     const u = this.material.uniforms;
     u.time.value = time;
+    u.projectionInverse.value.copy(camera.projectionMatrixInverse);
+    u.cameraRotation.value.setFromMatrix4(camera.matrixWorld);
+    u.sidereal.value=siderealAngle(now);
     u.night.value = state.night;
     u.lightPosition.value.set(light.x, light.y);
     u.sunAmount.value = light.sun;

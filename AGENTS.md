@@ -307,3 +307,12 @@ Tyto zdroje jsou výchozí vodítka z dosavadní konverzace, nikoli potvrzení, 
 ## Animované pozadí v hlavní aplikaci
 
 Hlavní aplikace nyní načítá renderer z `WeatherAnimationLab/dist` místo fotografie. `run.sh` jej sestavuje před spuštěním. Model předává WMO kód, den/noc, oblačnost a vítr přes `js/atmosphere.js`; renderer neprovádí vlastní meteorologické požadavky. Do získání použitelného modelu zůstává neutrální pozadí. Rozložení a ovládací prvky hlavního UI jsou zachované. Ověření vzhledu na uživatelově GPU stále zbývá.
+
+## Výběr města a další atmosférické změny
+
+- Hotovo: kliknutí na název města otevře vyhledávání, výsledky rozlišují oblast a zemi. Volba se ukládá; `Use current location` vrátí IP polohu. Nová volba obnoví data ihned a starý požadavek je nesmí přepsat.
+- API nyní vrací absolutní Unix časy. Hodinový výhled, dny i osa srážek používají časové pásmo vybraného města. Tím je dřívější úkol časových pásem vyřešen pro čerstvá data; historická cache se obnoví při načtení.
+- Opravené hranice intenzity srážek: horní mez škály vždy přesahuje Heavy, i při nulových srážkách. Popisky jsou ve středech tří stejně vysokých pásem.
+- Blesky: dlouhé výboje přes výšku či šířku scény, jemné odchylky hlavního kanálu, slabší větve, několik návratových pulzů. HDR kompozice před bloomem; nativní HDR monitoru zde není potvrzené.
+- Mlha: čtyři samostatně posouvané vrstvy hustoty s průhledy. Noční mraky mají vlastní výrazně slabší osvětlení, zvlášť při zataženu.
+- Skutečná hvězdná mapa NASA SVS, kulová projekce podle souřadnic města a UTC. Jde o přibližnou orientaci (bez precese/refrakce), jas je výtvarně upravený a měsíc nadále placeholder. Zdroj a podmínky v `WeatherAnimationLab/ASSETS.md`.

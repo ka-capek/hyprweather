@@ -1,11 +1,13 @@
 import * as THREE from 'three';
 import { EffectComposer, RenderPass, EffectPass, ToneMappingEffect, ToneMappingMode, BloomEffect, Effect } from 'postprocessing';
-import { SkyMaterial, PrecomputedTexturesLoader, AerialPerspectiveEffect } from '@takram/three-atmosphere';
+import { SkyMaterial, PrecomputedTexturesLoader, AerialPerspectiveEffect, AtmosphereParameters } from '@takram/three-atmosphere';
 import { CloudsEffect } from '@takram/three-clouds';
 import { STBNLoader, Geodetic, Ellipsoid } from '@takram/three-geospatial';
 import { weatherScene } from './weather-scene.js';
 import { CelestialSky } from './celestial.js';
 import { framingSettings, lightComposition } from './composition.js';
+import { Lightning } from './lightning.js';
+import { lightningPulse } from './lightning-path.js';
 import { Precipitation } from './precipitation.js';
 import { createRandom, createCloudField, cloudVelocity } from './motion.js';
 
@@ -32,7 +34,7 @@ const presets = {
   storm: { title: 'A sky coming undone', index: '03', elevation: -10, azimuth: -12, coverage: .48, exposure: 1.6, wind: 44, rain: 1, snow: 0, night: 1, temp: 18, condition: 'Thunderstorms', density: .14, height: 1500 },
   snow: { title: 'The quiet hours', index: '04', elevation: 1, azimuth: 24, coverage: .4, exposure: 6, wind: 10, rain: 0, snow: .28, night: 0, temp: -3, condition: 'Light snow', density: .1, height: 1000 },
 };
-presets.fog = { title: 'Everything slows down', index: '05', elevation: 5, azimuth: 8, coverage: .6, exposure: 5, wind: 4, rain: 0, snow: 0, night: 0, temp: 8, condition: 'Fog', density: .08, height: 550 };
+presets.fog = { title: 'Everything slows down', index: '05', elevation: 5, azimuth: 8, coverage: .22, exposure: 4, wind: 4, rain: 0, snow: 0, night: 0, temp: 8, condition: 'Fog', density: .045, height: 550 };
 presets.wind = { title: 'The restless sky', index: '06', elevation: 12, azimuth: -15, coverage: .32, exposure: 8, wind: 65, rain: 0, snow: 0, night: 0, temp: 16, condition: 'Strong wind', density: .08, height: 750 };
 presets.blizzard = { title: 'Lost in the snowfall', index: '07', elevation: 3, azimuth: 15, coverage: .98, exposure: 3.8, wind: 38, rain: 0, snow: 1, night: 0, temp: -7, condition: 'Heavy snow', density: .17, height: 650 };
 presets.night = { title: 'A thousand quiet lights', index: '08', elevation: -12, azimuth: 14, coverage: .06, exposure: 1.4, wind: 5, rain: 0, snow: 0, night: 1, temp: 9, condition: 'Clear night', density: .055, height: 750 };
@@ -47,8 +49,8 @@ for (const [name, preset] of Object.entries(presets)) {
   preset.blizzard = name === 'blizzard' ? 1 : 0;
 }
 let key = 'sunset', current, target, paused = false, cycle = false, frames = 0, elapsed = 0, fps = 0;
-let flashAge = 99, nextFlash = 6, boltPoints = [];
-let renderer, camera, composer, clouds, skyMaterial, atmosphere, particles, grade, bloom, celestial;
+let flashAge = 99, nextFlash = 6;
+let renderer, camera, composer, clouds, skyMaterial, atmosphere, particles, grade, bloom, celestial, lightning, lightningPass, cloudAtmosphere;
 let localFrame;
 
 // A restrained display-space grade, plus a spatial lightning pulse. Weather
@@ -74,27 +76,31 @@ class WeatherGrade extends Effect {
         float glow = exp(-length((uv-flashPosition)*vec2(1.,1.2))*5.);
         float structure = .2 + dot(c.rgb,vec3(.25,.5,.25));
         color += flashAmount * glow * structure * vec3(.48,.57,.88);
-        // Three independently advected, domain-warped density sheets. Gaps stay
-        // transparent; wind moves the density field rather than flashing opacity.
-        float veil=0.;
-        if(fogAmount>.001 || snowHaze>.001){
-        vec2 p=uv*vec2(viewAspect,1.);
-        vec2 q=p*vec2(2.1,3.8)+fogDrift;
-        vec2 warp=vec2(noise2(q*.8+fogMotion*.25),noise2(q*.7+7.-fogMotion*.18))-.5;
-        float farSheet=noise2(q*.64+warp*.8+fogMotion*.45);
-        float midSheet=noise2(q+warp*1.4+fogMotion*.8);
-        float nearSheet=noise2(q*1.8+warp*1.7+fogMotion*1.2+19.);
-        veil=smoothstep(.37,.77,farSheet)*.32
-                  +smoothstep(.43,.78,midSheet)*.53
-                  +smoothstep(.54,.84,nearSheet)*.35;
-        float fogAlpha=(1.-exp(-veil*1.65))*fogAmount;
-        vec3 fogColor=mix(vec3(.31,.38,.45),vec3(.49,.55,.60),farSheet);
-        fogColor=mix(fogColor,vec3(.035,.06,.105),nightAmount);
-        color=mix(color,fogColor,clamp(fogAmount*.055+fogAlpha,0.,.88));
+        // Advected banks at distinct depths. Density has clear gaps, soft edges,
+        // and stretched detail; foreground sheets cross the distant field.
+        if(fogAmount>.001){
+          vec2 p=uv*vec2(viewAspect,1.);
+          for(int i=0;i<4;i++){
+            float layer=float(i);
+            vec2 q=p*vec2(1.45+layer*.52,3.4+layer*1.25)
+              +fogDrift*(.13+layer*.21)+fogMotion*(.45+layer*.44);
+            vec2 bend=vec2(noise2(q*.72+layer*17.),noise2(q*.53+8.3))-.5;
+            q+=bend*1.5;
+            float body=noise2(q)*.62+noise2(q*2.07+11.)*.27+noise2(q*4.13)*.11;
+            float filament=noise2(q*vec2(.6,2.8)+bend);
+            float density=smoothstep(.42,.72,body+filament*.075);
+            float opacity=1.-exp(-density*fogAmount*(.48+layer*.16));
+            float light=exp(-length((uv-vec2(.72,.8))*vec2(viewAspect,1.))*2.);
+            vec3 bank=mix(vec3(.25,.32,.40),vec3(.53,.59,.65),body);
+            bank+=vec3(.065,.052,.03)*light;
+            bank=mix(bank,vec3(.035,.065,.105)+body*.055,nightAmount);
+            color=mix(color,bank,opacity);
+          }
         }
-        // Distant snowfall extinguishes the sky before foreground flakes are drawn.
-        float snowVeil=clamp(snowHaze*(.92+.08*veil),0.,.98);
-        color=mix(color,snowFogColor,snowVeil);
+        // Fine distant snow uses a much cheaper extinction field.
+        float snowVeil=snowHaze;
+        if(snowHaze>.001)snowVeil*=.94+.06*noise2(uv*vec2(viewAspect,1.)*4.+fogMotion);
+        color=mix(color,snowFogColor,clamp(snowVeil,0.,.98));
         float noise = fract(sin(dot(uv*vec2(1316.,1396.),vec2(12.9898,78.233)))*43758.5453)-.5;
         color += noise/255.;
         outColor = vec4(color,c.a);
@@ -157,13 +163,8 @@ function toggleOverlay() { $('weather').classList.toggle('hidden'); $('overlay')
 function triggerFlash() {
   if (!target?.lightning) return;
   flashAge = 0;
-  const x = .24 + random()*.52;
-  const y = .14 + random()*.18;
-  grade.uniforms.get('flashPosition').value.set(x, 1-y);
-  boltPoints = [{ x, y }];
-  let px = x, py = y;
-  for (let i=0; i<15; i++) { px += (random()-.48)*.025; py += .013+random()*.012; boltPoints.push({x:px,y:py}); }
-  particles.setBolt(boltPoints);
+  const point=lightning.trigger();
+  grade.uniforms.get('flashPosition').value.set(point.x,1-point.y);
 }
 
 function applyFraming() {
@@ -191,17 +192,23 @@ async function init() {
   localFrame=Ellipsoid.WGS84.getEastNorthUpFrame(camera.position);
   applyFraming();
   const scene = new THREE.Scene();
-  const [textures, weather, shape, detail, turbulence, stbn] = await Promise.all([
+  const [textures, weather, shape, detail, turbulence, stbn, starMap] = await Promise.all([
     new PrecomputedTexturesLoader({ format: 'binary', combinedScattering: true, higherOrderScattering: true }).loadAsync('./atmosphere'),
     texture2D('./clouds/local_weather.png'), texture3D('./clouds/shape.bin',128), texture3D('./clouds/shape_detail.bin',32),
     texture2D('./clouds/turbulence.png'), new STBNLoader().loadAsync('./clouds/stbn.bin'),
+    new THREE.TextureLoader().loadAsync('./sky/nasa-starmap-8k.jpg'),
   ]);
   skyMaterial = new SkyMaterial({ ...textures, ground: false, sun: false, groundAlbedo: new THREE.Color(.015,.017,.02), moon: false, sunAngularRadius: .008 });
   const sky = new THREE.Mesh(new THREE.PlaneGeometry(2,2), skyMaterial);
   sky.frustumCulled = false;
   scene.add(sky);
-  celestial = new CelestialSky(scene, seed);
-  clouds = new CloudsEffect(camera);
+  starMap.colorSpace=THREE.SRGBColorSpace;
+  starMap.wrapS=THREE.RepeatWrapping;starMap.wrapT=THREE.ClampToEdgeWrapping;
+  // Isotropic mip selection near the celestial pole smears stars radially.
+  starMap.minFilter=THREE.LinearFilter;starMap.generateMipmaps=false;
+  celestial = new CelestialSky(scene, seed, starMap);
+  cloudAtmosphere = new AtmosphereParameters();
+  clouds = new CloudsEffect(camera,undefined,cloudAtmosphere);
   Object.assign(clouds, textures);
   clouds.localWeatherTexture = weather; clouds.shapeTexture = shape; clouds.shapeDetailTexture = detail;
   clouds.turbulenceTexture = turbulence; clouds.stbnTexture = stbn;
@@ -231,6 +238,10 @@ async function init() {
   composer = new EffectComposer(renderer,{ frameBufferType:THREE.HalfFloatType, multisampling:0 });
   composer.addPass(new RenderPass(scene,camera));
   composer.addPass(new EffectPass(camera,clouds,atmosphere));
+  lightning = new Lightning(createRandom(seed ^ 0x85ebca6b));
+  lightningPass = new RenderPass(lightning.scene,lightning.camera);
+  lightningPass.clearPass.enabled=false;
+  composer.addPass(lightningPass);
   bloom = new BloomEffect({ intensity:.35, luminanceThreshold:1.5, luminanceSmoothing:.5, mipmapBlur:true });
   composer.addPass(new EffectPass(camera,bloom,new ToneMappingEffect({ mode:ToneMappingMode.AGX })));
   grade = new WeatherGrade();
@@ -240,7 +251,7 @@ async function init() {
   const resize = () => {
     const width=Math.max(1,$('scene').clientWidth),height=Math.max(1,$('scene').clientHeight);
     camera.aspect=width/height;camera.updateProjectionMatrix();
-    composer.setSize(width,height);particles.resize(width,height);
+    composer.setSize(width,height);particles.resize(width,height);lightning.resize(width,height);
     grade.uniforms.get('viewAspect').value=width/height;
   };
   new ResizeObserver(resize).observe($('scene'));
@@ -256,6 +267,7 @@ async function init() {
   $('loading').classList.add('hidden');
   if(embedded)parent.postMessage({type:'atmosphere-ready'},location.origin);
   const sun=new THREE.Vector3(), moonDirection=new THREE.Vector3(), snowFog=new THREE.Color();
+  let starClock=Date.now();
   let previous=performance.now(), sampleStart=previous, sampleFrames=0;
   renderer.setAnimationLoop(now=>{
     const dt=Math.min((now-previous)/1000,.08); previous=now;
@@ -263,7 +275,7 @@ async function init() {
     if(embedded && previewIndex===0 && liveModel && Math.floor(Date.now()/60000)!==lastLiveMinute) applyLiveModel(liveModel);
 
     if (!paused) {
-      elapsed+=dt;
+      elapsed+=dt;starClock=Date.now();
       if(cycle) {
         const direction=['sunrise','snow','night','cloudy-night'].includes(key)?1:-1;
         target.elevation+=direction*dt*.18;
@@ -275,7 +287,8 @@ async function init() {
       if(target.lightning>.5&&elapsed>nextFlash) { triggerFlash();nextFlash=elapsed+7+random()*11; }
       if(!window.lab.freezeFlash) flashAge+=dt;
     }
-    const flash = flashAge<.8 ? (Math.exp(-flashAge*12)+.65*Math.exp(-Math.pow((flashAge-.17)*25,2))) : 0;
+    const flash = lightningPulse(flashAge);
+    lightning.update(flash);lightningPass.enabled=flash>.002;
     const light = lightComposition(current.elevation,current.azimuth,current.night,current.blizzard,current.snow);
     const elev=rad(current.elevation), az=rad(current.azimuth);
     sun.set(Math.sin(az)*Math.cos(elev),Math.cos(az)*Math.cos(elev),Math.sin(elev)).transformDirection(localFrame);
@@ -284,6 +297,10 @@ async function init() {
     // cloud volume; the astronomical sky remains at the actual lab sun angle.
     moonDirection.set(light.x*2-1,light.y*2-1,.5).unproject(camera).sub(camera.position).normalize();
     clouds.sunDirection.copy(sun).lerp(moonDirection,current.night).normalize();
+    const moonIllumination=THREE.MathUtils.lerp(.035,.008,THREE.MathUtils.smoothstep(current.coverage,.35,.9));
+    const cloudLight=THREE.MathUtils.lerp(1,moonIllumination,current.night);
+    cloudAtmosphere.sunRadianceToRelativeLuminance.copy(AtmosphereParameters.DEFAULT.sunRadianceToRelativeLuminance).multiplyScalar(cloudLight);
+    cloudAtmosphere.skyRadianceToRelativeLuminance.copy(AtmosphereParameters.DEFAULT.skyRadianceToRelativeLuminance).multiplyScalar(cloudLight);
     clouds.skyLightScale=THREE.MathUtils.lerp(1,.22,current.night);
     clouds.coverage=current.coverage;
     clouds.cloudLayers[0].densityScale=current.density;
@@ -293,13 +310,13 @@ async function init() {
     clouds.localWeatherVelocity.set(velocity.x*.000025,velocity.y*.000025);
     clouds.shapeVelocity.set(velocity.x*.00015,velocity.y*.00015,.000025*current.wind);
     clouds.shapeDetailVelocity.set(velocity.x*.00019,velocity.y*.00019,.000037*current.wind);
-    celestial.update(elapsed,current,light);
+    celestial.update(elapsed,current,light,camera,starClock);
     snowFog.setRGB(.39+light.warmth*.045*(1-current.blizzard)-current.blizzard*.19,.44-current.blizzard*.20,.51-light.warmth*.045*(1-current.blizzard)-current.blizzard*.205);
     grade.uniforms.get('snowHaze').value=light.haze;
     grade.uniforms.get('snowFogColor').value.copy(snowFog);
     renderer.toneMappingExposure=current.exposure;
     grade.uniforms.get('fogAmount').value=current.fog;
-    grade.uniforms.get('nightAmount').value=current.night*.58;
+    grade.uniforms.get('nightAmount').value=current.night*.58*(1-Math.min(flash,1)*.9);
     grade.uniforms.get('flashAmount').value=flash;
     const frameDt=paused?0:dt;
     grade.uniforms.get('fogMotion').value.x+=frameDt*(.012+current.wind*.0012);
@@ -329,6 +346,7 @@ function applyLiveModel(model) {
   const next=weatherScene(model.current,model.location);
   if(!next)return;
   const first=!liveModel;
+  if(liveModel && (liveModel.location?.latitude!==model.location?.latitude || liveModel.location?.longitude!==model.location?.longitude))previewIndex=0;
   liveModel=model;lastLiveMinute=Math.floor(Date.now()/60000);
   if(previewIndex!==0)return;
   key='live';target=next;cycle=false;notifyRendered=true;

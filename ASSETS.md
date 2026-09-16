@@ -88,3 +88,10 @@ atribuci Open-Meteo i do README a do případného „o aplikaci".
 `js/data.js` obsahuje smyšlený scénář pro posuzování vzhledu. Do produkčního
 zobrazení se nedostane — načte se jen na `?mock` a je zřetelně označený jako
 `Design preview · Sample weather`.
+
+## Animated night sky
+
+Bundled celestial star map: NASA/Goddard Space Flight Center Scientific Visualization Studio,
+**Deep Star Maps**, https://svs.gsfc.nasa.gov/3895 . Public-domain NASA SVS asset;
+source URL, credits, projection and limitations are recorded in
+[`WeatherAnimationLab/ASSETS.md`](WeatherAnimationLab/ASSETS.md).

@@ -62,3 +62,23 @@ seeded artistic field, not a catalogue; the moon is an original noise-shaded
 placeholder. No Apple, photographic or downloaded lunar/star textures were added.
 The previous `stars.bin` remains in the historical asset directory but this
 iteration does not load it. New snow lighting/fog shaders are original code.
+
+## Catalogue-based night sky (September 2026)
+
+Replaces the procedural star field described above. Bundled, unmodified texture:
+`public/sky/nasa-starmap-8k.jpg` (8192 × 4096, ~6.9 MiB).
+
+- Source: https://svs.gsfc.nasa.gov/3895 — **Deep Star Maps**, celestial coordinates.
+- Download: https://svs.gsfc.nasa.gov/vis/a000000/a003800/a003895/starmap_8k.jpg
+- Credit: NASA/Goddard Space Flight Center Scientific Visualization Studio; Ernie Wright and Tom Bridgman. Based on Yale Bright Star and Tycho-2 catalogues. No constellation line artwork is used.
+- NASA SVS usage: public domain unless otherwise noted, https://svs.gsfc.nasa.gov/help/ . No separate restriction is stated for this star map.
+- The smaller 8K JPEG edition keeps the application download manageable. The newer HDR edition is https://svs.gsfc.nasa.gov/4851 .
+- Project code projects the spherical map through the camera and rotates it with UTC sidereal time and the selected city's ECEF camera frame. This is an approximate Earth view, not an astrometry tool: precession, nutation, atmospheric refraction and light pollution are not modelled. Brightness is art-directed; the moon remains a placeholder.
+
+## Lightning and fog implementation references
+
+Original procedural ribbon geometry, branching and glow; no third-party effect code copied.
+- NVIDIA Lightning SDK presentation: https://developer.download.nvidia.com/SDK/10.5/direct3d/Source/Lightning/doc/lightning_doc.pdf
+- Lightning is composited into the existing half-float HDR buffer **before bloom and tone mapping**. This is HDR rendering, not a claim of HDR monitor output.
+- Extended-range canvas presentation is a separate capability: https://github.com/ccameron-chromium/webgpu-hdr/blob/main/EXPLAINER.md . It is not forced with experimental browser flags.
+- Fog uses four advected, warped screen-space density layers and exponential transmittance; it is an artistic approximation, not full volumetric scattering. Reference: https://advances.realtimerendering.com/s2014/wronski/bwronski_volumetric_fog_siggraph2014.pdf
