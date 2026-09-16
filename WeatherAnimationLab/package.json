@@ -1,0 +1,21 @@
+{
+  "name": "weather-animation-lab",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "electron.cjs",
+  "scripts": {
+    "build": "vite build",
+    "dev": "vite --host 127.0.0.1 --port 8791 --strictPort"
+  },
+  "dependencies": {
+    "@takram/three-atmosphere": "0.19.1",
+    "@takram/three-clouds": "0.7.6",
+    "@takram/three-geospatial": "0.9.1",
+    "postprocessing": "6.39.1",
+    "three": "0.183.2"
+  },
+  "devDependencies": {
+    "vite": "^7.3.0"
+  }
+}

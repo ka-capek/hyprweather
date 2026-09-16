@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data: blob:; connect-src 'self'; worker-src 'self' blob:">
+  <title>Atmosphere · Animation Lab</title>
+  <link rel="stylesheet" href="./style.css">
+</head>
+<body>
+  <div id="scene"></div>
+  <div class="vignette"></div>
+  <div id="loading"><span class="loading-sun"></span><p>Painting the sky</p><small>Loading the atmosphere and cloud volumes</small></div>
+  <header class="lab-header chrome"><span>ATMOSPHERE <i>/</i> MOTION STUDIES</span><div><span id="fps">—</span><button id="close" title="Close window">×</button></div></header>
+  <main id="weather" class="hidden" aria-label="Sample weather overlay">
+    <p class="place">Prague</p><p class="sample">SAMPLE WEATHER</p>
+    <p id="temperature">21°</p><p id="condition">Partly cloudy</p>
+    <p class="range">H:23° &nbsp; · &nbsp; L:14°</p>
+  </main>
+  <section class="dock chrome" aria-label="Animation laboratory controls">
+    <div class="study-heading"><div><span id="eyebrow">STUDY 01</span><h1 id="title">The last light</h1></div><button id="overlay" class="quiet" aria-pressed="false">Weather overlay <kbd>U</kbd></button></div>
+    <nav id="presets" aria-label="Select a development scene">
+      <button data-scene="sunset" class="active"><span class="swatch sunset"></span><span>Sunset<small>01 · Golden clouds</small></span></button>
+      <button data-scene="sunrise"><span class="swatch sunrise"></span><span>Sunrise<small>02 · First light</small></span></button>
+      <button data-scene="storm"><span class="swatch storm"></span><span>Thunderstorm<small>03 · After dark</small></span></button>
+      <button data-scene="snow"><span class="swatch snow"></span><span>Snowfall<small>04 · Winter dawn</small></span></button>
+    </nav>
+    <div class="controls">
+      <label>Sun elevation <output id="sun-value">1.5°</output><input id="sun" type="range" min="-14" max="35" step="0.1" value="1.5"></label>
+      <label>Cloud cover <output id="cloud-value">42%</output><input id="clouds" type="range" min="0" max="1" step="0.01" value="0.42"></label>
+      <button id="cycle" class="quiet" aria-pressed="false">Play sunset</button>
+      <button id="pause" class="quiet" aria-pressed="false">Pause</button>
+    </div>
+    <footer><span>Live volumetric sky · No weather data · No sound</span><span><kbd>1–4</kbd> scenes &nbsp; <kbd>H</kbd> hide controls &nbsp; <kbd>Space</kbd> pause</span></footer>
+  </section>
+  <script type="module" src="./app.js"></script>
+</body>
+</html>
