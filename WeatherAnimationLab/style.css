@@ -18,7 +18,7 @@ button:focus-visible, input:focus-visible { outline: 2px solid #f6cc97; outline-
 h1 { margin: 10px 0 0; font-size: 39px; letter-spacing: -1.5px; font-weight: 350; }
 .quiet { border-radius: 9px; padding: 11px 15px; white-space: nowrap; font-size: 12px; color: #fff5eacc; }
 .quiet[aria-pressed=true] { border-color: #f4d6ad99; background: #f4d6ad19; }
-#presets { display: grid; grid-template-columns: repeat(4,1fr); gap: 12px; }
+#presets { display: grid; grid-template-columns: repeat(3,1fr); gap: 12px; }
 #presets button { display: flex; align-items: center; text-align: left; gap: 15px; padding: 17px; border-radius: 12px; background: #12182042; backdrop-filter: blur(18px); font-size: 14px; }
 #presets button.active { border-color: #efd2ad9c; background: #f0d0b512; }
 #presets small { display: block; color: #fff4e280; margin-top: 6px; font-size: 10px; letter-spacing: .3px; }
@@ -45,3 +45,9 @@ kbd { font: inherit; border: 1px solid #fff2; border-radius: 4px; padding: 2px 5
 #loading small { color: #ffffff60; }
 .loading-sun { width: 42px; height: 42px; background: #f5d9ac; border-radius: 50%; box-shadow: 0 0 100px 25px #ddb79030; }
 @media(max-width: 850px) { .dock { left: 22px; right: 22px; } #presets button { padding: 12px; gap: 8px; } .swatch { display: none; } .controls { gap: 12px; } footer > span:first-child { display: none; } }
+
+.icon-defs { position: absolute; width: 0; height: 0; overflow: hidden; }
+.study-icon { flex: 0 0 39px; width: 39px; height: 39px; color: #e6edf4; }
+.weather-icon { display: block; width: 48px; height: 48px; margin: 14px auto 0; color: #edf3fa; }
+@media(max-width: 850px) { .controls { flex-wrap: wrap; } .controls label { flex-basis: 40%; } h1 { font-size: 28px; } footer { line-height: 1.7; } }
+@media(max-height: 800px) { .dock { bottom: 15px; } .study-heading { margin-bottom: 12px; } #presets button { padding: 10px; } .controls { margin-top: 12px; padding-top: 12px; } footer { margin-top: 12px; } #weather { top: 13%; } #temperature { font-size: 100px; } }

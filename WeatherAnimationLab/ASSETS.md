@@ -45,3 +45,11 @@ Reference: https://github.com/NVIDIA-RTX/STBN
 
 The app's own JavaScript, CSS, markup and particle shaders were authored for this lab.
 No license has been chosen for the project as a whole; nothing has been published.
+
+
+## Fog and wind symbols (September 2026)
+
+Original SVG paths in `index.html`, authored for this project; no SF Symbols or
+Apple artwork is bundled. Visual vocabulary reference:
+https://support.apple.com/en-lamr/guide/iphone/iph4305794fb/ios
+The fog veil shader and seeded motion helpers are original project code.

@@ -30,8 +30,12 @@ app.whenReady().then(async () => {
     webPreferences: { contextIsolation: true, nodeIntegration: false, sandbox: true, backgroundThrottling: false, offscreen: Boolean(capture || suite) } });
   win.setMenu(null);
   win.webContents.on('console-message', event => console.log(`renderer[${event.level}] ${event.message}`));
-  let latestPaint;
-  win.webContents.on('paint', (_event, _dirty, image) => { latestPaint = image; });
+  // Drain the GPU queue and request the current compositor surface instead of
+  // saving a cached paint event from the loading screen or previous scene.
+  const freshPaint = async () => {
+    await win.webContents.executeJavaScript('window.lab.settleFrame()');
+    return win.webContents.capturePage();
+  };
   if (capture || suite) win.webContents.setFrameRate(60);
   win.webContents.on('render-process-gone', (_event, details) => { console.error(details); app.exit(1); });
   win.webContents.on('before-input-event', (event, input) => {
@@ -40,7 +44,11 @@ app.whenReady().then(async () => {
     if (input.key === 'F12') { event.preventDefault(); win.webContents.toggleDevTools(); }
   });
   const initial = arg('scene') || 'sunset';
-  await win.loadURL(`http://127.0.0.1:${server.address().port}/?scene=${encodeURIComponent(initial)}`);
+  const query = new URLSearchParams({ scene: initial });
+  if (arg('seed') !== undefined) query.set('seed', arg('seed'));
+  if (arg('view')) query.set('view', arg('view'));
+  if (arg('quality')) query.set('quality', arg('quality'));
+  await win.loadURL(`http://127.0.0.1:${server.address().port}/?${query}`);
   if (capture || suite) {
     try {
       const deadline = Date.now() + 90000;
@@ -50,21 +58,26 @@ app.whenReady().then(async () => {
         if (Date.now() > deadline) throw new Error('Renderer startup timeout');
         await new Promise(resolve => setTimeout(resolve, 500));
       }
-      const scenes = suite ? ['sunset', 'sunrise', 'storm', 'snow'] : [initial];
+      const scenes = suite ? ['sunset', 'sunrise', 'storm', 'snow', 'fog', 'wind'] : [initial];
       for (const scene of scenes) {
+        const previousFrames = await win.webContents.executeJavaScript('window.lab.diagnostics().frames');
         await win.webContents.executeJavaScript(`window.lab.setScene(${JSON.stringify(scene)}, true)`);
         await new Promise(resolve => setTimeout(resolve, 3500));
+        const frameDeadline = Date.now() + 60000;
+        while ((await win.webContents.executeJavaScript('window.lab.diagnostics().frames')) <= previousFrames + 3) {
+          if (Date.now() > frameDeadline) throw new Error('Scene frame timeout');
+          await new Promise(resolve => setTimeout(resolve, 250));
+        }
         const result = await win.webContents.executeJavaScript('window.lab.diagnostics()');
         console.log(JSON.stringify({ scene, ...result }));
-        if (result.errors.length || result.scroll || result.frames < 5) throw new Error('Scene verification failed');
+        if (result.errors.length || result.scroll || result.frames <= previousFrames + 2) throw new Error('Scene verification failed');
         const target = suite ? path.join(root, 'captures', `${scene}.png`) : path.resolve(root, capture);
         fs.mkdirSync(path.dirname(target), { recursive: true });
-        if (!latestPaint) throw new Error('No rendered frame received');
-        fs.writeFileSync(target, latestPaint.toPNG());
+        fs.writeFileSync(target, (await freshPaint()).toPNG());
         if (scene === 'storm' && suite) {
           await win.webContents.executeJavaScript('window.lab.flash(); window.lab.freezeFlash = true');
           await new Promise(resolve => setTimeout(resolve, 150));
-          fs.writeFileSync(path.join(root, 'captures', 'lightning.png'), latestPaint.toPNG());
+          fs.writeFileSync(path.join(root, 'captures', 'lightning.png'), (await freshPaint()).toPNG());
           await win.webContents.executeJavaScript('window.lab.freezeFlash = false');
         }
       }
@@ -74,11 +87,23 @@ app.whenReady().then(async () => {
           document.getElementById('overlay').click();
           window.dispatchEvent(new KeyboardEvent('keydown', {key:'h'}));
           return {elapsed:window.lab.diagnostics().elapsed, paused:window.lab.diagnostics().paused,
+            cloudOffset:window.lab.diagnostics().cloudOffset,
             overlay:!document.getElementById('weather').classList.contains('hidden'), clean:document.body.classList.contains('clean')};
         })()`);
         await new Promise(resolve => setTimeout(resolve, 300));
         const after = await win.webContents.executeJavaScript('window.lab.diagnostics().elapsed');
         if (!before.paused || !before.overlay || !before.clean || before.elapsed !== after) throw new Error('Pause/overlay controls failed');
+        const pausedClouds = await win.webContents.executeJavaScript('window.lab.diagnostics().cloudOffset');
+        if (JSON.stringify(pausedClouds) !== JSON.stringify(before.cloudOffset)) throw new Error('Cloud drift while paused');
+        const views = await win.webContents.executeJavaScript(`(() => {
+          const before=window.lab.diagnostics();
+          document.getElementById('framing').click();
+          const after=window.lab.diagnostics();
+          document.getElementById('framing').click();
+          return {before, after};
+        })()`);
+        if (views.before.framing === views.after.framing || views.before.seed !== views.after.seed ||
+            JSON.stringify(views.before.cloudOffset) !== JSON.stringify(views.after.cloudOffset)) throw new Error('Framing reset the sky');
         await win.webContents.executeJavaScript(`(() => {
           document.getElementById('pause').click();
           const sun=document.getElementById('sun'); sun.value='8'; sun.dispatchEvent(new Event('input',{bubbles:true}));
@@ -87,7 +112,11 @@ app.whenReady().then(async () => {
         await new Promise(resolve => setTimeout(resolve, 400));
         const controls = await win.webContents.executeJavaScript(`({sun:document.getElementById('sun-value').textContent,cloud:document.getElementById('cloud-value').textContent,elapsed:window.lab.diagnostics().elapsed})`);
         if (controls.sun !== '8.0°' || controls.cloud !== '25%' || controls.elapsed <= after) throw new Error('Slider/resume controls failed');
-        console.log('Controls verified: scene selection, sliders, pause/resume, overlay, clean view');
+        win.setContentSize(850, 900);
+        await new Promise(resolve => setTimeout(resolve, 700));
+        const resized = await win.webContents.executeJavaScript('window.lab.diagnostics()');
+        if (resized.width !== 850 || resized.height !== 900 || resized.scroll || resized.errors.length) throw new Error('Resize failed');
+        console.log('Controls verified: six scenes, sliders, frozen cloud drift, pause/resume, overlay, framing, clean view, resize');
       }
       console.log('GPU', JSON.stringify(app.getGPUFeatureStatus()));
       app.quit();

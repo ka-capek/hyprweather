@@ -3,7 +3,7 @@ import * as THREE from 'three';
 // GPU-positioned instanced streaks/flakes in camera space. No DOM particles or
 // per-frame CPU position uploads. Every particle has stable depth and randomness.
 export class Precipitation {
-  constructor(renderer) {
+  constructor(renderer, random = Math.random) {
     this.renderer=renderer;
     this.scene=new THREE.Scene();
     this.camera=new THREE.PerspectiveCamera(58,innerWidth/innerHeight,.1,100);
@@ -12,30 +12,30 @@ export class Precipitation {
     geometry.setAttribute('uv',new THREE.Float32BufferAttribute([0,0,1,0,1,1,0,1],2));
     geometry.setIndex([0,1,2,0,2,3]);
     const seeds=new Float32Array(6000*4);
-    let state=74219;
-    for(let i=0;i<seeds.length;i++){state=(Math.imul(state,1664525)+1013904223)>>>0;seeds[i]=state/4294967296;}
+    this.random = random;
+    for(let i=0;i<seeds.length;i++)seeds[i]=random();
     geometry.setAttribute('seed',new THREE.InstancedBufferAttribute(seeds,4));geometry.instanceCount=6000;
     this.material=new THREE.ShaderMaterial({
-      uniforms:{time:{value:0},rain:{value:0},snow:{value:0},wind:{value:0},flash:{value:0},aspect:{value:innerWidth/innerHeight}},
+      uniforms:{time:{value:0},rain:{value:0},snow:{value:0},wind:{value:0},slant:{value:0},flash:{value:0},aspect:{value:innerWidth/innerHeight}},
       vertexShader:`
         attribute vec4 seed;
-        uniform float time,rain,snow,wind,aspect;
+        uniform float time,rain,snow,wind,slant,aspect;
         varying vec2 vUv;
         varying float vAlpha,vSnow;
         void main(){
           vUv=uv;vSnow=snow;
-          float depth=3.+seed.z*35.;
+          float depth=12.+seed.z*18.;
           float span=depth*1.35;
           float speed=mix(10.+seed.z*14.,.8+seed.z*1.5,snow);
           float age=time+seed.w*100.;
           float y=(.5-fract(seed.y+age*speed/span))*span;
-          float drift=age*wind*.035;
+          float drift=wind*.035;
           float x=(fract(seed.x+drift/(span*aspect))-.5)*span*aspect;
           x+=snow*sin(age*.65+seed.w*27.)*.6;
           float width=mix(.009,.018+seed.w*.035,snow);
           float height=mix(.3+seed.z*.32,width,snow);
           vec2 p=position.xy*vec2(width,height);
-          p.x+=p.y*mix(wind*.008,0.,snow);
+          p.x+=p.y*mix(slant*.008,0.,snow);
           vec3 center=vec3(x,y,-depth);
           gl_Position=projectionMatrix*modelViewMatrix*vec4(center+vec3(p,0.),1.);
           vAlpha=mix(rain*.27,snow*.8,snow)*(1.-smoothstep(8.,40.,depth));
@@ -64,7 +64,7 @@ export class Precipitation {
     for(const start of [3,6,9]) {
       let {x,y}=points[start];const branch=[{x,y}];
       const sign=start===6?-1:1;
-      for(let i=0;i<5;i++){x+=sign*(.008+Math.random()*.018);y+=.01+Math.random()*.021;branch.push({x,y});}
+      for(let i=0;i<5;i++){x+=sign*(.008+this.random()*.018);y+=.01+this.random()*.021;branch.push({x,y});}
       paths.push(branch);
     }
     const makeGeometry=width=>{
@@ -85,9 +85,12 @@ export class Precipitation {
   }
   resize(w,h){this.camera.aspect=w/h;this.camera.updateProjectionMatrix();this.material.uniforms.aspect.value=w/h;}
   render(time,rain,snow,wind,flash){
+    const dt = Math.max(0, time - (this.previousTime ?? time));
+    this.previousTime = time;
+    this.drift = (this.drift || 0) + dt*wind;
     Object.assign(this.material.uniforms.time,{value:time});
     this.material.uniforms.rain.value=rain;this.material.uniforms.snow.value=snow;
-    this.material.uniforms.wind.value=wind;this.material.uniforms.flash.value=flash;
+    this.material.uniforms.wind.value=this.drift || 0;this.material.uniforms.slant.value=wind;this.material.uniforms.flash.value=flash;
     const clear=this.renderer.autoClear;this.renderer.autoClear=false;
     if(rain+snow>.001)this.renderer.render(this.scene,this.camera);
     if(flash>.03){this.bolt.material.opacity=Math.min(1,flash);this.boltGlow.material.opacity=flash*.1;this.renderer.render(this.boltScene,this.boltCamera);}
