@@ -148,6 +148,7 @@
       draw: function (g) {
         var s = '';
         var edges = g.levels.map(function (l) { return l.from; }).concat([g.scaleMax]);
+        edges[0] = 0;
         // Na nízkém panelu leží prahy blízko u sebe; popisek, který by se
         // překryl s předchozím, raději vynech, než aby se slil v kaši.
         var MIN_GAP = 15;
@@ -156,7 +157,7 @@
         g.levels.slice().reverse().forEach(function (lvl) {
           var i = g.levels.indexOf(lvl);
           var yTop = g.y(edges[i + 1]);
-          var yBot = g.y(lvl.from);
+          var yBot = g.y(edges[i]);
           if (i > 0) {
             s += '<line x1="' + g.padL + '" y1="' + yBot.toFixed(1) + '" x2="' + (g.W - g.padR) +
                  '" y2="' + yBot.toFixed(1) + '" stroke="' + GUIDE +
@@ -164,7 +165,7 @@
           }
           // U horní hrany pásma. Ve středu se LIGHT a MODERATE slévaly,
           // protože prahy 2,5 a 7,6 leží na dvacetimilimetrové škále blízko sebe.
-          var ly = Math.min(yTop + 13, yBot - 2);
+          var ly = (yTop + yBot) / 2 + 4;
           if (ly - lastLabelY >= MIN_GAP) {
             s += text(g.padL - 12, ly, lvl.label.toUpperCase(), 'y-label', 'end');
             lastLabelY = ly;
@@ -280,7 +281,7 @@
         g.levels.slice().reverse().forEach(function (lvl) {
           var i = g.levels.indexOf(lvl);
           var yTop = g.y(edges[i + 1]);
-          var yBot = g.y(lvl.from);
+          var yBot = g.y(edges[i]);
           s += '<rect x="' + g.padL + '" y="' + yTop.toFixed(1) + '" width="' +
                (g.W - g.padL - g.padR) + '" height="' + Math.max(yBot - yTop, 0).toFixed(1) +
                '" fill="rgba(150,195,240,' + (0.03 + i * 0.045).toFixed(3) + ')"/>';
@@ -361,6 +362,8 @@
     var slot = plotW / p.series.length;
 
     var levels = p.levels;
+    // The upper edge must exceed the Heavy threshold, even on a dry day.
+    scaleMax = Math.max(scaleMax, Math.ceil((levels[levels.length - 1].from + 1) / 5) * 5);
 
     /*
      * Dvě škály:
@@ -447,23 +450,25 @@
     var totalMin = p.series.length * p.stepMinutes;
     var MIN_GAP = 52;
 
+    var clock = new Intl.DateTimeFormat('en-GB', { timeZone: p.timezone || undefined, hour:'2-digit', minute:'2-digit', hourCycle:'h23' });
     var nowX = padL;
-    svg += text(nowX, H - 7, 'Now', 'axis-label', 'start');
+    var isCurrent = !p.startISO || (Date.now() >= start.getTime() && Date.now() < start.getTime() + p.stepMinutes * 60000);
+    svg += text(nowX, H - 7, isCurrent ? 'Now' : clock.format(start), 'axis-label', 'start');
 
     var stepH = Math.max(Math.round(p.tickEveryMinutes / 60), 1);
-    var probe = new Date(start.getTime());
-    probe.setMinutes(0, 0, 0);
-    if (probe < start) probe.setHours(probe.getHours() + 1);
-    while (probe.getHours() % stepH !== 0) probe.setHours(probe.getHours() + 1);
-
-    var occupiedLeft = nowX + 34;          // šířka popisku „Now"
-    for (; ; probe.setHours(probe.getHours() + stepH)) {
+    // Quarter-hour increments also cover :30 and :45 time zones, without using
+    // the computer's local offset or assuming that a DST day is 24 hours long.
+    var probe = new Date(Math.ceil(start.getTime() / 900000) * 900000);
+    var occupiedLeft = nowX + (isCurrent ? 34 : 42);
+    for (; ; probe = new Date(probe.getTime() + 900000)) {
       var offMin = (probe - start) / 60000;
       if (offMin > totalMin) break;
+      var label = clock.format(probe), parts = label.split(':');
+      if (+parts[1] !== 0 || +parts[0] % stepH !== 0) continue;
       var tx = padL + plotW * (offMin / totalMin);
       if (tx - occupiedLeft < MIN_GAP) continue;
       if (W - padR - tx < MIN_GAP - 22) continue;
-      svg += text(tx, H - 7, pad2(probe.getHours()) + ':00', 'axis-label', 'middle');
+      svg += text(tx, H - 7, label, 'axis-label', 'middle');
       occupiedLeft = tx + 22;
     }
 
