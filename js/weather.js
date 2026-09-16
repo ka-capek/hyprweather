@@ -202,6 +202,12 @@
   }
 
   function toModel(place, d) {
+    // Request absolute API timestamps; never parse another city's wall clock locally.
+    ['hourly', 'daily', 'minutely_15'].forEach(function (key) {
+      if (d[key] && d[key].time) d[key].time = d[key].time.map(function (t) {
+        return typeof t === 'number' ? new Date(t * 1000).toISOString() : t;
+      });
+    });
     var cur = d.current || {};
     var h = d.hourly || {};
     var day = d.daily || {};
@@ -215,6 +221,7 @@
       var hd = describe(h.weather_code && h.weather_code[idx],
                         h.is_day ? h.is_day[idx] === 1 : true);
       hourly.push({
+        timeISO: h.time[idx],
         hours: k === 0 ? 0 : hoursBetween(h.time[hIdx], h.time[idx]),
         icon: k === 0 ? desc.icon : hd.icon,
         temp: h.temperature_2m ? round(h.temperature_2m[idx]) : null,
@@ -232,6 +239,7 @@
     for (var j = 0; j < 5 && day.time && j < day.time.length; j++) {
       var dd = describe(day.weather_code && day.weather_code[j], true);
       daily.push({
+        dateISO: day.time[j],
         days: j,
         icon: dd.icon,
         pop: day.precipitation_probability_max ? day.precipitation_probability_max[j] : null,
@@ -266,6 +274,7 @@
         isDay: cur.is_day == null ? null : cur.is_day === 1,
       },
       precip: {
+        timezone: d.timezone || place.timezone,
         series: p.series,
         startISO: p.startISO,
         stepMinutes: p.stepMinutes,
@@ -314,7 +323,7 @@
       '&forecast_minutely_15=64' +
       '&hourly=temperature_2m,weather_code,precipitation,precipitation_probability,is_day' +
       '&daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max' +
-      '&forecast_days=6&timezone=auto';
+      '&forecast_days=6&timezone=auto&timeformat=unixtime';
     return getJSON(url).then(function (d) { return toModel(place, d); });
   }
 
@@ -377,6 +386,7 @@
             return {
               city: r.name,
               region: r.country,
+              admin: r.admin1,
               latitude: r.latitude,
               longitude: r.longitude,
               timezone: r.timezone,

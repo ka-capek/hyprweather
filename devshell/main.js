@@ -132,10 +132,20 @@ function createWindow() {
   win.webContents.on('before-input-event', (event, input) => {
     if (input.type !== 'keyDown') return;
     const key = (input.key || '').toLowerCase();
-    if (key === 'escape' || (input.control && key === 'q')) win.close();
+    if (key === 'escape') {
+      event.preventDefault();
+      win.webContents.executeJavaScript(`(() => { const dialog=document.querySelector('dialog[open]'); if(!dialog)return false; dialog.close(); return true; })()`)
+        .then(handled => { if(!handled && !win.isDestroyed())win.close(); });
+      return;
+    }
+    if (input.control && key === 'q') win.close();
     else if (key === 'f5' || (input.control && key === 'r')) win.reload();
     else if (key === 'f12') win.webContents.toggleDevTools({ mode: 'detach' });
-    else if (PAGES[key]) win.loadURL(pageURL(PAGES[key]));
+    else if (PAGES[key]) {
+      win.webContents.executeJavaScript(`Boolean(document.querySelector('dialog[open]') || document.activeElement?.matches('input, textarea, select, [contenteditable]'))`)
+        .then(editing => { if(!editing && !win.isDestroyed())win.loadURL(pageURL(PAGES[key])); });
+      return;
+    }
     else return;
     event.preventDefault();
   });

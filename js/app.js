@@ -19,7 +19,14 @@
 
   /* --- Popisky času se odvozují od teď, ne z pevných řetězců ----- */
 
-  function hourLabel(offsetHours) {
+  function formatTime(iso, options) {
+    return new Intl.DateTimeFormat('en-GB', Object.assign({ timeZone: model.location.timezone || undefined }, options)).format(new Date(iso));
+  }
+  function hourLabel(offsetHours, iso) {
+    if (iso) {
+      if (!offsetHours && Date.now() >= Date.parse(iso) && Date.now() < Date.parse(iso) + 3600000) return 'Now';
+      return formatTime(iso, { hour: '2-digit', hourCycle: 'h23' });
+    }
     if (!offsetHours) return 'Now';
     var t = new Date();
     t.setHours(t.getHours() + offsetHours, 0, 0, 0);
@@ -28,7 +35,11 @@
 
   var WEEKDAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
-  function dayLabel(offsetDays) {
+  function dayLabel(offsetDays, iso) {
+    if (iso) {
+      if (formatTime(iso, { year:'numeric', month:'2-digit', day:'2-digit' }) === formatTime(Date.now(), { year:'numeric', month:'2-digit', day:'2-digit' })) return 'Today';
+      return formatTime(iso, { weekday:'short' });
+    }
     if (!offsetDays) return 'Today';
     var t = new Date();
     t.setDate(t.getDate() + offsetDays);
@@ -83,7 +94,7 @@
   function drawHourly() {
     $('hourly').innerHTML = model.hourly.map(function (h) {
       return '<li>' +
-               '<span class="hour-label">' + hourLabel(h.hours) + '</span>' +
+               '<span class="hour-label">' + hourLabel(h.hours, h.timeISO) + '</span>' +
                icon(h.icon, 'hour-icon') +
                '<span class="hour-pop">' + (h.pop >= 30 ? h.pop + '%' : '') + '</span>' +
                '<span class="hour-temp">' + deg(h.temp) + '</span>' +
@@ -107,7 +118,7 @@
         ? '<span class="now" style="left:' + pct(d.now).toFixed(1) + '%"></span>'
         : '';
       return '<li>' +
-               '<span class="day-label">' + dayLabel(d.days) + '</span>' +
+               '<span class="day-label">' + dayLabel(d.days, d.dateISO) + '</span>' +
                icon(d.icon, 'day-icon') +
                '<span class="day-pop">' + (d.pop >= 20 ? d.pop + '%' : '') + '</span>' +
                '<span class="day-low">' + deg(d.low) + '</span>' +
@@ -192,11 +203,21 @@
   var cached = window.Weather.cached();
   if (cached) render(cached);
 
-  window.Weather.start(render, function (err) {
+  function failed(err) {
     if (model) { model.meta.stale = true; drawStatus(); }
     else {
       statusOverride = 'Weather unavailable — ' + (err && err.message ? err.message : 'no data');
       drawStatus();
     }
+  }
+  var stopWeather = window.Weather.start(render, failed);
+  window.addEventListener('weather-place-changed', function () {
+    stopWeather();
+    statusOverride = 'Updating location…';
+    drawStatus();
+    stopWeather = window.Weather.start(render, function (err) {
+      statusOverride = 'Location update failed — retrying';
+      failed(err);
+    });
   });
 }());

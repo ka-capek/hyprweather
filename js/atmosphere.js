@@ -31,7 +31,7 @@
     }
   });
   window.addEventListener('keydown', function (event) {
-    if (!ready || !model || event.altKey || event.ctrlKey || event.metaKey ||
+    if (!ready || !model || document.querySelector('dialog[open]') || event.altKey || event.ctrlKey || event.metaKey ||
         (event.target instanceof Element && event.target.closest('input, textarea, select, [contenteditable]'))) return;
     var step = { ArrowLeft: -1, ArrowRight: 1, ArrowUp: -1, ArrowDown: 1 }[event.key];
     if (!step) return;
