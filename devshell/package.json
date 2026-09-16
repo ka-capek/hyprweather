@@ -1,0 +1,7 @@
+{
+  "name": "weatherapp-devshell",
+  "version": "0.0.0",
+  "description": "Vývojový obal — zobrazí prototyp jako čisté okno bez prohlížeče.",
+  "main": "main.js",
+  "private": true
+}

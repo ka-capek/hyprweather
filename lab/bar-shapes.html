@@ -1,0 +1,81 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Bar shapes — lab</title>
+<link rel="stylesheet" href="../css/styles.css">
+<link rel="stylesheet" href="_lab.css">
+<style>
+  .grid {
+    flex: 1 1 auto; min-height: 0;
+    display: grid;
+    grid-template-columns: repeat(6, 1fr);
+    grid-template-rows: repeat(4, 1fr);
+    gap: 10px;
+  }
+  .cell {
+    display: flex; flex-direction: column;
+    padding: 7px 8px 6px;
+    border: 1px solid rgba(255,255,255,0.075);
+    border-radius: 13px;
+    background: rgba(14, 21, 31, 0.34);
+    backdrop-filter: blur(14px);
+    overflow: hidden;
+  }
+  .cell-name {
+    display: block; margin-bottom: 4px;
+    font-size: 11.5px; font-weight: 600;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    color: rgba(255,255,255,0.92);
+  }
+  .cell-name b { color: #A6D0F7; margin-right: 5px; }
+  .cell-name em {
+    font-style: normal; font-weight: 400; font-size: 10.5px;
+    color: rgba(226,235,246,0.46);
+  }
+  .cell svg { flex: 1 1 auto; min-height: 0; width: 100%; }
+</style>
+</head>
+<body>
+<div class="lab-bg"></div><div class="lab-veil"></div>
+
+<div class="lab">
+  <nav class="lab-nav">
+    <a href="../index.html"><kbd>1</kbd>Aplikace</a>
+    <a href="bar-shapes.html" class="on"><kbd>2</kbd>Tvary sloupce</a>
+    <a href="precip-styles.html" class=""><kbd>3</kbd>Kódování intenzity</a>
+    <a href="shapes-in-app.html"><kbd>4</kbd>Tvary v panelu</a>
+  </nav>
+  <h1>Tvary sloupce</h1>
+  <p class="note">Vlevo sloupec v maximální velikosti, vpravo tentýž tvar v poloviční — kontrola, že funguje i v malém. Vyber číslo a zapiš ho do <code>js/data.js</code> → <code>precip.barShape</code>.</p>
+  <div class="grid" id="grid"></div>
+</div>
+
+<script src="../js/bar-shapes.js"></script>
+<script>
+(function () {
+  // Kreslí se do pevné soustavy; SVG se pak roztáhne na velikost pole.
+  var W = 200, H = 268, BASE = 254;
+  var BIG  = { x: 4,   w: 106, h: 232 };
+  var HALF = { x: 138, w: 53,  h: 116 };
+
+  document.getElementById('grid').innerHTML =
+    window.BAR_SHAPE_NAMES.map(function (name, i) {
+      var shape = window.BAR_SHAPES[name];
+      var c = window.barContext(i + 1, 1);
+
+      return '<div class="cell">' +
+               '<span class="cell-name"><b>' + (i + 1) + '</b>' + name +
+                 ' <em>' + shape.label + '</em></span>' +
+               '<svg viewBox="0 0 ' + W + ' ' + H + '" preserveAspectRatio="xMidYMax meet">' +
+                 shape.draw(BIG.x,  BASE - BIG.h,  BIG.w,  BIG.h,  c) +
+                 shape.draw(HALF.x, BASE - HALF.h, HALF.w, HALF.h, c) +
+                 '<line x1="0" y1="' + BASE + '" x2="' + W + '" y2="' + BASE +
+                   '" stroke="rgba(255,255,255,0.16)" stroke-width="1"/>' +
+               '</svg>' +
+             '</div>';
+    }).join('');
+}());
+</script>
+</body>
+</html>

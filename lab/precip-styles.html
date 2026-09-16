@@ -1,0 +1,77 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Intensity encodings — lab</title>
+<link rel="stylesheet" href="../css/styles.css">
+<link rel="stylesheet" href="_lab.css">
+<style>
+  .grid {
+    flex: 1 1 auto; min-height: 0;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    grid-auto-rows: 1fr;
+    gap: 10px 12px;
+  }
+  .variant { display: flex; flex-direction: column; min-height: 0; }
+  .variant-name {
+    display: block; margin: 0 0 4px 3px; white-space: nowrap;
+    font-size: 11.5px; font-weight: 600;
+    color: rgba(255,255,255,0.9);
+  }
+  .variant-name b { color: #A6D0F7; margin-right: 5px; }
+  .variant-name em {
+    font-style: normal; font-weight: 400; font-size: 10.5px;
+    color: rgba(226,235,246,0.46);
+  }
+  .variant .panel { flex: 1 1 auto; min-height: 0; }
+</style>
+</head>
+<body>
+<div class="lab-bg"></div><div class="lab-veil"></div>
+
+<div class="lab">
+  <nav class="lab-nav">
+    <a href="../index.html"><kbd>1</kbd>Aplikace</a>
+    <a href="bar-shapes.html" class=""><kbd>2</kbd>Tvary sloupce</a>
+    <a href="precip-styles.html" class="on"><kbd>3</kbd>Kódování intenzity</a>
+    <a href="shapes-in-app.html"><kbd>4</kbd>Tvary v panelu</a>
+  </nav>
+  <h1>Kódování intenzity</h1>
+  <p class="note" id="note"></p>
+  <div class="grid" id="grid"></div>
+</div>
+
+<script src="../js/data.js"></script>
+<script src="../js/bar-shapes.js"></script>
+<script src="../js/precip.js"></script>
+<script>
+(function () {
+  // ?flat → stejně vysoké sloupce místo skutečných dat
+  var UNIFORM = location.search.indexOf('flat') !== -1;
+
+  document.getElementById('note').innerHTML = UNIFORM
+    ? 'Stejně vysoké sloupce. Zpět na skutečná data: <a href="?">bez ?flat</a>.'
+    : 'Skutečná mock data, tvar sloupce podle <code>precip.barShape</code>. Stejná výška sloupců: <a href="?flat">?flat</a>. Vyber číslo a zapiš ho do <code>js/data.js</code> → <code>precip.barStyle</code>.';
+
+  document.getElementById('grid').innerHTML =
+    window.PRECIP_STYLES.map(function (name, i) {
+      return '<div class="variant">' +
+               '<span class="variant-name"><b>' + (i + 1) + '</b>' + name +
+                 ' <em>' + window.PRECIP_STYLE_LABEL(name) + '</em></span>' +
+               '<div class="panel"><div class="precip-chart" data-style="' + name + '"></div></div>' +
+             '</div>';
+    }).join('');
+
+  function draw() {
+    Array.prototype.forEach.call(document.querySelectorAll('.precip-chart'), function (el) {
+      window.renderPrecip(el, window.MOCK.precip, el.dataset.style, { uniform: UNIFORM });
+    });
+  }
+
+  requestAnimationFrame(draw);
+  window.addEventListener('resize', draw);   // viewBox je v pixelech, musí se překreslit
+}());
+</script>
+</body>
+</html>

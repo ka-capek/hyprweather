@@ -1,0 +1,111 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Shapes in app — lab</title>
+<link rel="stylesheet" href="../css/styles.css">
+<link rel="stylesheet" href="_lab.css">
+<style>
+  /* Skutečný srážkový panel aplikace, vykreslený pro každý tvar.
+     Stejná šířka, stejná výška, stejné CSS — tohle je 1:1, ne ukázka. */
+  .list {
+    flex: 1 1 auto; min-height: 0;
+    overflow-y: auto;
+    scroll-snap-type: y proximity;
+    scrollbar-width: none;
+  }
+  .list::-webkit-scrollbar { display: none; }
+
+  .row { scroll-snap-align: start; margin-bottom: 10px; }
+
+  .row-name {
+    display: block; margin: 0 0 4px 4px;
+    font-size: 12.5px; font-weight: 600;
+    color: rgba(255,255,255,0.92);
+  }
+  .row-name b { color: #A6D0F7; margin-right: 6px; }
+  .row-name em {
+    font-style: normal; font-weight: 400; font-size: 11px;
+    color: rgba(226,235,246,0.46); margin-left: 6px;
+  }
+  .row .panel { height: 198px; }
+
+  /* Kompaktní režim (klávesa C) — víc tvarů najednou za cenu nižšího panelu. */
+  body.compact .row .panel { height: 118px; }
+
+  .hint {
+    flex: 0 0 auto; padding-top: 8px;
+    font-size: 11px; color: rgba(226,235,246,0.42);
+  }
+  .hint kbd {
+    font: inherit; padding: 1px 5px; border-radius: 4px;
+    border: 1px solid rgba(255,255,255,0.14); color: rgba(226,235,246,0.7);
+  }
+</style>
+</head>
+<body>
+<div class="lab-bg"></div><div class="lab-veil"></div>
+
+<div class="lab">
+  <nav class="lab-nav">
+    <a href="../index.html"><kbd>1</kbd>Aplikace</a>
+    <a href="bar-shapes.html"><kbd>2</kbd>Tvary sloupce</a>
+    <a href="precip-styles.html"><kbd>3</kbd>Kódování intenzity</a>
+    <a href="shapes-in-app.html" class="on"><kbd>4</kbd>Tvary v panelu</a>
+  </nav>
+
+  <div class="list" id="list"></div>
+
+  <p class="hint">
+    <kbd>↑</kbd> <kbd>↓</kbd> další tvar &nbsp;·&nbsp;
+    <kbd>C</kbd> kompaktní režim &nbsp;·&nbsp;
+    zvolený zapiš do <code>js/data.js</code> → <code>precip.barShape</code>
+  </p>
+</div>
+
+<script src="../js/data.js"></script>
+<script src="../js/bar-shapes.js"></script>
+<script src="../js/precip.js"></script>
+<script>
+(function () {
+  var list = document.getElementById('list');
+  var names = window.BAR_SHAPE_NAMES;
+
+  list.innerHTML = names.map(function (name, i) {
+    return '<section class="row">' +
+             '<span class="row-name"><b>' + (i + 1) + '</b>' + name +
+               '<em>' + window.BAR_SHAPES[name].label + '</em></span>' +
+             '<div class="panel"><div class="precip-chart" data-shape="' + name + '"></div></div>' +
+           '</section>';
+  }).join('');
+
+  function draw() {
+    Array.prototype.forEach.call(list.querySelectorAll('.precip-chart'), function (el) {
+      // Stejná data i stejný způsob kódování jako v aplikaci; mění se jen tvar.
+      var p = Object.assign({}, window.MOCK.precip, { barShape: el.dataset.shape });
+      window.renderPrecip(el, p, window.MOCK.precip.barStyle);
+    });
+  }
+
+  if (location.search.indexOf('compact') !== -1) document.body.classList.add('compact');
+  requestAnimationFrame(draw);
+
+  document.addEventListener('keydown', function (e) {
+    var rows = list.querySelectorAll('.row');
+    if (!rows.length) return;
+
+    if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+      e.preventDefault();
+      var step = rows[0].offsetHeight + 10;
+      list.scrollBy({ top: e.key === 'ArrowDown' ? step : -step, behavior: 'smooth' });
+    } else if (e.key.toLowerCase() === 'c') {
+      document.body.classList.toggle('compact');
+      requestAnimationFrame(draw);   // panel změnil výšku, graf se musí překreslit
+    }
+  });
+
+  window.addEventListener('resize', draw);
+}());
+</script>
+</body>
+</html>

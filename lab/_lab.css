@@ -1,0 +1,43 @@
+/* Společný rám vývojových stránek. Laděné na okno aplikace 1316 × 1396,
+   aby se daly prohlížet přes ./run.sh ve skutečné velikosti, bez scrollování. */
+
+html, body { height: 100%; overflow: hidden; }
+
+.lab-bg {
+  position: fixed; inset: 0;
+  background: url('../assets/img/sky-storm.png') center 42% / cover no-repeat;
+}
+.lab-veil {
+  position: fixed; inset: 0;
+  background: linear-gradient(to bottom, rgba(7,12,19,0.64), rgba(7,12,19,0.80));
+}
+
+.lab {
+  position: relative; z-index: 1;
+  display: flex; flex-direction: column;
+  height: 100vh;
+  padding: 14px 20px 18px;
+}
+
+.lab-nav {
+  display: flex; gap: 6px; margin-bottom: 10px;
+  font-size: 11px; letter-spacing: 0.06em; text-transform: uppercase;
+}
+.lab-nav a {
+  padding: 4px 10px; border-radius: 999px;
+  border: 1px solid rgba(255,255,255,0.11);
+  color: rgba(226,235,246,0.62); text-decoration: none; font-weight: 600;
+}
+.lab-nav a.on {
+  border-color: rgba(166,208,247,0.5);
+  background: rgba(166,208,247,0.12);
+  color: #CFE6FF;
+}
+.lab-nav kbd {
+  font: inherit; opacity: 0.5; margin-right: 5px;
+}
+
+.lab h1 { margin: 0 0 2px; font-size: 16px; font-weight: 600; color: #fff; }
+.lab p.note { margin: 0 0 12px; font-size: 12.5px; color: rgba(226,235,246,0.58); }
+.lab p.note code { color: rgba(206,228,250,0.8); }
+.lab p.note a { color: #A6D0F7; }

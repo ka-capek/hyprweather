@@ -1,0 +1,115 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>WeatherApp — design preview</title>
+<link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+
+<!-- Sada ikon. Kresleno ručně, aby prototyp nezávisel na externí ikonové knihovně. -->
+<svg class="sprite" aria-hidden="true">
+  <defs>
+    <g id="g-cloud">
+      <path d="M7.2 18.2h9.9a3.9 3.9 0 0 0 .5-7.77 5.9 5.9 0 0 0-11.2-1.9 3.64 3.64 0 0 0 .8 9.67Z"/>
+    </g>
+  </defs>
+
+  <symbol id="i-cloud" viewBox="0 0 24 24"><use href="#g-cloud"/></symbol>
+
+  <symbol id="i-rain" viewBox="0 0 24 24">
+    <g transform="translate(0,-1.6)"><use href="#g-cloud"/></g>
+    <path d="M8.4 18.6 7.1 21.6M12 18.6l-1.3 3M15.6 18.6l-1.3 3"/>
+  </symbol>
+
+  <symbol id="i-drizzle" viewBox="0 0 24 24">
+    <g transform="translate(0,-1.6)"><use href="#g-cloud"/></g>
+    <path d="M8.9 18.9 8.3 20.4M12.4 18.9l-.6 1.5M15.9 18.9l-.6 1.5"/>
+  </symbol>
+
+  <symbol id="i-bolt" viewBox="0 0 24 24">
+    <g transform="translate(0,-2.2)"><use href="#g-cloud"/></g>
+    <path d="M13.3 15.4 9.9 20h3.3l-2.8 4.1"/>
+  </symbol>
+
+  <symbol id="i-partly" viewBox="0 0 24 24">
+    <circle cx="8.8" cy="7.4" r="3"/>
+    <path d="M8.8 1.9v1.4M3.3 7.4h1.4M4.9 3.5l1 1M12.7 3.5l-1 1"/>
+    <path d="M10.6 20.4h7.3a3.3 3.3 0 0 0 .4-6.57 4.95 4.95 0 0 0-9.4-1.55 3.1 3.1 0 0 0 1.7 8.12Z" class="fillbg"/>
+  </symbol>
+
+  <symbol id="i-snow" viewBox="0 0 24 24">
+    <g transform="translate(0,-1.8)"><use href="#g-cloud"/></g>
+    <path d="M8.6 19.4v2.6M7.5 20.1l2.2 1.3M9.7 20.1l-2.2 1.3"/>
+    <path d="M15.4 19.4v2.6M14.3 20.1l2.2 1.3M16.5 20.1l-2.2 1.3"/>
+  </symbol>
+
+  <symbol id="i-fog" viewBox="0 0 24 24">
+    <g transform="translate(0,-2.4)"><use href="#g-cloud"/></g>
+    <path d="M4.6 18.6h11M7.2 21.4h11"/>
+  </symbol>
+
+  <symbol id="i-moon" viewBox="0 0 24 24">
+    <path d="M20 14.2A8.2 8.2 0 0 1 9.8 4 8.4 8.4 0 1 0 20 14.2Z"/>
+  </symbol>
+
+  <symbol id="i-partly-night" viewBox="0 0 24 24">
+    <path d="M14.6 8.5a4.9 4.9 0 0 1-6-6 5 5 0 1 0 6 6Z"/>
+    <path d="M10.4 20.6h7.6a3.4 3.4 0 0 0 .4-6.78 5.1 5.1 0 0 0-9.7-1.6 3.2 3.2 0 0 0 1.7 8.38Z" class="fillbg"/>
+  </symbol>
+
+  <symbol id="i-sun" viewBox="0 0 24 24">
+    <circle cx="12" cy="12" r="4.4"/>
+    <path d="M12 2.4v2.4M12 19.2v2.4M2.4 12h2.4M19.2 12h2.4M5.2 5.2l1.7 1.7M17.1 17.1l1.7 1.7M5.2 18.8l1.7-1.7M17.1 6.9l1.7-1.7"/>
+  </symbol>
+</svg>
+
+
+<main class="app" id="app">
+  <!-- Pozadí přes celé okno, viditelné až ke spodní hraně. -->
+  <div class="sky" aria-hidden="true"></div>
+  <div class="sky-veil" aria-hidden="true"></div>
+
+  <p class="badge" id="badge"></p>
+
+  <!-- Horní kompozice: obloha a hlavní údaje -->
+  <header class="hero">
+    <div class="hero-inner">
+      <h1 class="city" id="city"></h1>
+      <p class="region" id="region"></p>
+
+      <p class="temp" id="temp"></p>
+
+      <p class="condition" id="condition"></p>
+      <p class="feels" id="feels"></p>
+      <p class="range" id="range"></p>
+    </div>
+  </header>
+
+  <!-- Spodní kompozice: shrnutí, srážky, hodiny, dny -->
+  <section class="panels">
+    <article class="panel panel-precip">
+      <div class="precip-chart" id="precip-chart"></div>
+    </article>
+
+    <div class="panel-row">
+      <article class="panel panel-hourly">
+        <ul class="hourly" id="hourly"></ul>
+      </article>
+
+      <article class="panel panel-daily">
+        <ul class="daily" id="daily"></ul>
+      </article>
+    </div>
+  </section>
+
+</main>
+
+<script src="js/data.js"></script>
+<script src="js/bar-shapes.js"></script>
+<script src="js/precip.js"></script>
+<script src="js/weather.js"></script>
+<script src="js/app.js"></script>
+</body>
+</html>

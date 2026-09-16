@@ -1,0 +1,6 @@
+# Vygenerované náhledy — kdykoli znovu vyrobitelné přes ./shot.sh nebo ./run.sh
+preview-*.png
+
+# Uživatelská data obalu (cache počasí, zvolené město) žijí v ~/.config
+# Dočasné profily prohlížeče z screenshotů
+*.log
