@@ -32,3 +32,13 @@ test('zero latitude is a valid IP location',async()=>{
     try {assert.equal(m.location.latitude,0);assert.equal(requests.length,2);stop();resolve();}catch(e){reject(e);}
   },reject);});
 });
+test('live model retains the conditions needed by the renderer',async()=>{
+  const d=fixture();d.current={weather_code:63,is_day:0,cloud_cover:42,wind_speed_10m:27,precipitation:1.2};
+  const {weather,requests}=setup([d]);
+  await new Promise((resolve,reject)=>{const stop=weather.start(m=>{
+    try {assert.equal(m.current.weatherCode,63);assert.equal(m.current.isDay,false);
+      assert.equal(m.current.cloudCover,42);assert.equal(m.current.windSpeed,27);
+      assert.equal(m.current.precipitation,1.2);
+      assert.match(requests[0],/cloud_cover,wind_speed_10m/);stop();resolve();}catch(e){reject(e);}
+  },reject);});
+});

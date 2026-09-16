@@ -12,8 +12,8 @@ Linuxová weather aplikace zaměřená na atmosféru a animované pozadí.
 | Cílový rozměr okna | 1316 × 1396 px |
 | Předpověď | Open-Meteo, bez klíče, obnova po 10 min |
 | Poloha | podle IP (geojs.io, záloha ipwho.is) |
-| Pozadí | statické PNG, `assets/img/sky-storm.png` |
-| Animace a zvuk | zatím nic z toho |
+| Pozadí | animovaná obloha podle aktuálních dat |
+| Animace a zvuk | animace zapojené, zvuk zatím není |
 
 Data se ukládají, takže po restartu je hned co ukázat. Bez sítě zůstane poslední
 známá předpověď a popisek se přepne na `Offline · last update …` — smyšlená data
@@ -25,6 +25,8 @@ se nikdy nevydávají za skutečná.
 ## Spuštění
 
 ### Jako okno (doporučeno)
+
+Vyžaduje Electron, Node.js 22+ a npm. `run.sh` sestaví animované pozadí; při prvním spuštění také nainstaluje jeho závislosti.
 
 ```sh
 ./run.sh            # aplikace

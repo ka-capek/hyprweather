@@ -253,6 +253,10 @@
         source: place.source || 'manual',
       },
       current: {
+        weatherCode: Number.isInteger(cur.weather_code) ? cur.weather_code : null,
+        cloudCover: Number.isFinite(cur.cloud_cover) ? cur.cloud_cover : null,
+        windSpeed: Number.isFinite(cur.wind_speed_10m) ? cur.wind_speed_10m : null,
+        precipitation: Number.isFinite(cur.precipitation) ? cur.precipitation : null,
         temp: round(cur.temperature_2m),
         condition: desc.condition,
         icon: desc.icon,
@@ -305,7 +309,7 @@
     var url = FORECAST +
       '?latitude=' + encodeURIComponent(place.latitude) +
       '&longitude=' + encodeURIComponent(place.longitude) +
-      '&current=temperature_2m,apparent_temperature,weather_code,is_day,precipitation' +
+      '&current=temperature_2m,apparent_temperature,weather_code,is_day,precipitation,cloud_cover,wind_speed_10m' +
       '&minutely_15=precipitation' +
       '&forecast_minutely_15=64' +
       '&hourly=temperature_2m,weather_code,precipitation,precipitation_probability,is_day' +

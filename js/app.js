@@ -123,6 +123,7 @@
   function render(m) {
     model = m;
     statusOverride = null;
+    if(window.Atmosphere)window.Atmosphere.update(m);
     drawHero();
     drawPrecip();
     drawHourly();

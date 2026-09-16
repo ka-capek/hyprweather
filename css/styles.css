@@ -83,8 +83,7 @@ body {
 .sky {
   position: absolute;
   inset: 0;
-  background: url('../assets/img/sky-storm.png') center 42% / cover no-repeat;
-  /* Fotografie je dočasná reference pro budoucí animovanou scénu. */
+  background: linear-gradient(#17263c, #050b17);
 }
 
 /* Jemné ztmavení spodku kvůli čitelnosti; textura mraků zůstává čitelná. */
@@ -386,3 +385,7 @@ body {
   filter: drop-shadow(0 1px 8px rgba(6, 10, 17, 0.4));
 }
 .wicon .fillbg { fill: rgba(21, 30, 43, 0.9); }
+
+.sky iframe { display: block; width: 100%; height: 100%; border: 0; opacity: 0; pointer-events: none; }
+.sky iframe.ready { opacity: 1; transition: opacity .6s; }
+.app.has-atmosphere > .sky-veil { display: none; }

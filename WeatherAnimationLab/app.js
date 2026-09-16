@@ -20,7 +20,7 @@ const rad = THREE.MathUtils.degToRad;
 const params = new URLSearchParams(location.search);
 const embedded = params.has('embedded');
 if (embedded) document.body.classList.add('embedded');
-let liveModel = null, lastLiveMinute = -1, notifyRendered = false;
+let liveModel = null, lastLiveMinute = -1, notifyRendered = false, previewIndex = 0;
 const softwareCheck = params.get('quality') === 'low';
 const seed = params.has('seed') ? Number(params.get('seed')) >>> 0 : crypto.getRandomValues(new Uint32Array(1))[0];
 const random = createRandom(seed);
@@ -36,7 +36,7 @@ presets.fog = { title: 'Everything slows down', index: '05', elevation: 5, azimu
 presets.wind = { title: 'The restless sky', index: '06', elevation: 12, azimuth: -15, coverage: .32, exposure: 8, wind: 65, rain: 0, snow: 0, night: 0, temp: 16, condition: 'Strong wind', density: .08, height: 750 };
 presets.blizzard = { title: 'Lost in the snowfall', index: '07', elevation: 3, azimuth: 15, coverage: .98, exposure: 3.8, wind: 38, rain: 0, snow: 1, night: 0, temp: -7, condition: 'Heavy snow', density: .17, height: 650 };
 presets.night = { title: 'A thousand quiet lights', index: '08', elevation: -12, azimuth: 14, coverage: .06, exposure: 1.4, wind: 5, rain: 0, snow: 0, night: 1, temp: 9, condition: 'Clear night', density: .055, height: 750 };
-presets['cloudy-night'] = { ...presets.night, title: 'Moonlight between clouds', index: '09', coverage: .62, wind: 16, density: .12, condition: 'Cloudy night' };
+presets['cloudy-night'] = { ...presets.night, title: 'Moonlight between clouds', index: '09', coverage: .42, wind: 16, density: .12, condition: 'Cloudy night' };
 presets['light-rain'] = { ...presets.sunrise, title:'A passing drizzle', index:'10', condition:'Light rain', rain:.24, coverage:.5, elevation:12 };
 presets.rain = { ...presets['light-rain'], title:'Rain on a quiet day', index:'11', condition:'Rain', rain:.55, coverage:.7 };
 presets.downpour = { ...presets.rain, title:'The sky opens', index:'12', condition:'Heavy rain', rain:1, coverage:.94, exposure:4 };
@@ -251,7 +251,7 @@ async function init() {
       requestAnimationFrame(resolve);
     })),
     diagnostics:()=>({ frames, fps:Math.round(fps), errors, scroll:document.documentElement.scrollHeight>innerHeight || document.documentElement.scrollWidth>innerWidth,
-      width:innerWidth,height:innerHeight,scene:key,seed,framing,horizonClearance:framingSettings(framing).tilt-camera.fov/2,light:lightComposition(current.elevation,current.azimuth,current.night,current.blizzard,current.snow),snow:current.snow,blizzard:current.blizzard,night:current.night,rain:current.rain,lightning:target.lightning,weatherCode:target.weatherCode,canvas:[renderer.domElement.width,renderer.domElement.height],cssSize:[renderer.domElement.clientWidth,renderer.domElement.clientHeight],celestialViewport:celestial.material.uniforms.viewport.value.toArray(),cloudOffset:clouds.localWeatherOffset.toArray(),shapeOffset:clouds.shapeOffset.toArray(),renderer:renderer.getContext().getParameter(renderer.getContext().getExtension('WEBGL_debug_renderer_info')?.UNMASKED_RENDERER_WEBGL || renderer.getContext().RENDERER),
+      width:innerWidth,height:innerHeight,scene:key,seed,framing,horizonClearance:framingSettings(framing).tilt-camera.fov/2,light:lightComposition(current.elevation,current.azimuth,current.night,current.blizzard,current.snow),snow:current.snow,blizzard:current.blizzard,night:current.night,rain:current.rain,lightning:target.lightning,weatherCode:target.weatherCode,coverage:target.coverage,wind:target.wind,canvas:[renderer.domElement.width,renderer.domElement.height],cssSize:[renderer.domElement.clientWidth,renderer.domElement.clientHeight],celestialViewport:celestial.material.uniforms.viewport.value.toArray(),cloudOffset:clouds.localWeatherOffset.toArray(),shapeOffset:clouds.shapeOffset.toArray(),renderer:renderer.getContext().getParameter(renderer.getContext().getExtension('WEBGL_debug_renderer_info')?.UNMASKED_RENDERER_WEBGL || renderer.getContext().RENDERER),
       textures:renderer.info.memory.textures,programs:renderer.info.programs.length,paused,elapsed }) };
   $('loading').classList.add('hidden');
   if(embedded)parent.postMessage({type:'atmosphere-ready'},location.origin);
@@ -259,7 +259,8 @@ async function init() {
   let previous=performance.now(), sampleStart=previous, sampleFrames=0;
   renderer.setAnimationLoop(now=>{
     const dt=Math.min((now-previous)/1000,.08); previous=now;
-    if(embedded && liveModel && Math.floor(Date.now()/60000)!==lastLiveMinute) applyLiveModel(liveModel);
+    if(embedded && !liveModel)return;
+    if(embedded && previewIndex===0 && liveModel && Math.floor(Date.now()/60000)!==lastLiveMinute) applyLiveModel(liveModel);
 
     if (!paused) {
       elapsed+=dt;
@@ -329,13 +330,33 @@ function applyLiveModel(model) {
   if(!next)return;
   const first=!liveModel;
   liveModel=model;lastLiveMinute=Math.floor(Date.now()/60000);
+  if(previewIndex!==0)return;
   key='live';target=next;cycle=false;notifyRendered=true;
+  const latitude=model.location?.latitude, longitude=model.location?.longitude;
+  if(Number.isFinite(latitude) && Number.isFinite(longitude)){
+    camera.position.copy(new Geodetic(rad(longitude),rad(latitude),180).toECEF());
+    camera.up.copy(Ellipsoid.WGS84.getSurfaceNormal(camera.position));
+    localFrame=Ellipsoid.WGS84.getEastNorthUpFrame(camera.position);
+    applyFraming();
+  }
   if(first)current={...target};
   if(!next.lightning)flashAge=99;
 }
+const sceneSequence = [null, ...Object.keys(presets).map(name=>({name})),
+  ...['light-rain','rain','downpour','storm','snow','blizzard','fog','wind'].map(name=>({name,night:true}))];
 window.addEventListener('message',event=>{
-  if(embedded && event.source===parent && event.origin===location.origin && event.data?.type==='weather-model'){
-    applyLiveModel(event.data.model);
+  if(!embedded || event.source!==parent || event.origin!==location.origin)return;
+  if(event.data?.type==='weather-model')applyLiveModel(event.data.model);
+  if(event.data?.type==='atmosphere-step' && liveModel){
+    const step=event.data.step;
+    if(step!==1 && step!==-1)return;
+    previewIndex=(previewIndex+step+sceneSequence.length)%sceneSequence.length;
+    const scene=sceneSequence[previewIndex];
+    if(!scene)applyLiveModel(liveModel);
+    else {
+      setScene(scene.name);
+      if(scene.night)toggleDayNight();
+    }
   }
 });
 $('day-night').addEventListener('click',toggleDayNight);

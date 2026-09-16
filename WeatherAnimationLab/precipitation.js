@@ -48,7 +48,7 @@ export class Precipitation {
           float y=(.5-fract(fall))*span;
           float x=(fract(seed.x+drift*.035/(span*aspect))-.5)*span*aspect;
           x+=kind*sin(age*.65+seed.w*27.)*.45;
-          float width=mix(.009,.045+seed.w*.055,kind);
+          float width=mix(.018+seed.z*.014,.045+seed.w*.055,kind);
           float height=mix(.3+seed.z*.32,width,kind);
           vec2 p=position.xy*vec2(width,height);
           p.x+=p.y*mix(slant*.008,0.,kind);
@@ -57,7 +57,7 @@ export class Precipitation {
           vNear=nearSlot*kind;
           vFog=1.-exp(-depth*extinction*kind);
           float present=1.-smoothstep(amount-.035,amount,seed.w);
-          vAlpha=mix(.27,.7,kind)*present*mix(1.,.65,vNear);
+          vAlpha=mix(.52,.7,kind)*present*mix(1.,.65,vNear);
           // Far flakes merge with the veil rather than shining through it.
           vAlpha*=mix(1.,exp(-depth*extinction)*(.9-.2*seed.z),kind);
         }`,
@@ -75,7 +75,8 @@ export class Precipitation {
           float lit=exp(-length((vScreen-lightPosition)*vec2(aspect,1.))*2.4)*directLight;
           vec3 snowColor=mix(vec3(.75,.8,.86),lightColor,clamp(.2+lit*.8,0.,1.));
           snowColor=mix(snowColor,fogColor,vFog*.8);
-          vec3 color=mix(vec3(.62,.74,.91),snowColor,kind)+flash*.3;
+          vec3 rainColor=mix(vec3(.76,.87,1.),lightColor,lit*.25);
+          vec3 color=mix(rainColor,snowColor,kind)+flash*.3;
           gl_FragColor=vec4(color,vAlpha*mix(rainShape,snowShape,kind));
           #include <colorspace_fragment>
         }`,
@@ -120,7 +121,7 @@ export class Precipitation {
       u.slant.value=wind;u.flash.value=flash;
       u.lightPosition.value.set(light.x,light.y);
       u.lightColor.value.setRGB(...light.lightColor);
-      u.directLight.value=light.sun*(1-blizzard);
+      u.directLight.value=(light.sun+light.moon*.55)*(1-blizzard);
       u.fogColor.value.copy(fogColor);u.extinction.value=light.extinction;
     }
     this.rainMesh.visible=rain>.001;this.snowMesh.visible=snow>.001;

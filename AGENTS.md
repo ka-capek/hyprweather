@@ -303,3 +303,7 @@ Tyto zdroje jsou výchozí vodítka z dosavadní konverzace, nikoli potvrzení, 
 - **feat (end goal): UI pro změnu aktivního města**, včetně existující logiky `Weather.search` / `Weather.setPlace`. Nyní pouze backlog.
 - Zbývá vizuálně ověřit vodorovné protažení na uživatelově GPU, doladit měkké cáry mlhy a zvýšit hustotu chumelenice. Headless SwiftShader není důkaz kvality nativního osvětlení mraků.
 - Při integraci opravit také práci s časem: API vrací místní ISO časy bez offsetu, které nynější datová vrstva parsuje v pásmu počítače. Hodinové/denní popisky odvozené od aktuálního času mohou při dlouhém offline režimu posouvat starou předpověď do budoucna. Uložit absolutní časy a formátovat v pásmu vybraného města.
+
+## Animované pozadí v hlavní aplikaci
+
+Hlavní aplikace nyní načítá renderer z `WeatherAnimationLab/dist` místo fotografie. `run.sh` jej sestavuje před spuštěním. Model předává WMO kód, den/noc, oblačnost a vítr přes `js/atmosphere.js`; renderer neprovádí vlastní meteorologické požadavky. Do získání použitelného modelu zůstává neutrální pozadí. Rozložení a ovládací prvky hlavního UI jsou zachované. Ověření vzhledu na uživatelově GPU stále zbývá.

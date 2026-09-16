@@ -34,6 +34,16 @@ done
 PAGE_ARG=()
 [ -n "$PAGE" ] && PAGE_ARG=(--page="$PAGE")
 
+if ! command -v npm >/dev/null; then
+  echo "Node.js a npm jsou potřeba pro sestavení animovaného pozadí." >&2
+  exit 1
+fi
+(
+  cd WeatherAnimationLab
+  if [ ! -d node_modules/vite ]; then npm ci --legacy-peer-deps --no-audit --no-fund; fi
+  npm run build
+)
+
 exec "$ELECTRON" \
   --ozone-platform-hint=auto \
   --enable-features=WaylandWindowDecorations \
