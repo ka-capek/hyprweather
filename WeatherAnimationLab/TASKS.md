@@ -11,7 +11,7 @@ with matching icons. Keep experiments in this lab until visually approved.
 - [x] Add fog and strong-wind studies and original matching SVG icons.
 - [x] Verify build, six scene presets, pause, resize and reproducible seeds.
 - [ ] Approve cloud appearance and motion on the user's GPU/monitor.
-- [ ] Push a reviewable update with Linux test instructions.
+- [x] Push a reviewable update with Linux test instructions (`36bcccb`).
 
 ## Research and implementation decision
 
