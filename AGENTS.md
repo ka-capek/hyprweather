@@ -295,3 +295,11 @@ Tyto zdroje jsou výchozí vodítka z dosavadní konverzace, nikoli potvrzení, 
 - Neimplementuj pozdější etapy před vizuálním schválením prvního prototypu.
 - Rozlišuj hotové části, mock data, vývojové nástroje a zamýšlené funkce.
 - Úspěchem první etapy je kvalitní prohlédnutelný návrh, podle kterého uživatel rozhodne, co upravit.
+
+## Nejnovější směr a revize (2026-09-16)
+
+- Uživatel chce směřovat animace do hlavní aplikace s reálnými daty; poslední úkol je ještě průchod současným kódem a oprava chyb. Samotné napojení pozadí do hlavní aplikace zatím není dokončené.
+- Požadované varianty: slabý déšť, běžný déšť, liják bez blesků a s blesky; každá ve dne i v noci. Mapování zahrnuje 28 Open-Meteo WMO kódů.
+- **feat (end goal): UI pro změnu aktivního města**, včetně existující logiky `Weather.search` / `Weather.setPlace`. Nyní pouze backlog.
+- Zbývá vizuálně ověřit vodorovné protažení na uživatelově GPU, doladit měkké cáry mlhy a zvýšit hustotu chumelenice. Headless SwiftShader není důkaz kvality nativního osvětlení mraků.
+- Při integraci opravit také práci s časem: API vrací místní ISO časy bez offsetu, které nynější datová vrstva parsuje v pásmu počítače. Hodinové/denní popisky odvozené od aktuálního času mohou při dlouhém offline režimu posouvat starou předpověď do budoucna. Uložit absolutní časy a formátovat v pásmu vybraného města.

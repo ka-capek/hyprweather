@@ -56,3 +56,6 @@ kbd { font: inherit; border: 1px solid #fff2; border-radius: 4px; padding: 2px 5
 .night { background: radial-gradient(circle at 70% 25%,#eff5ff 2px,transparent 5px),radial-gradient(circle at 30% 60%,#b9d8ff 1px,transparent 2px),linear-gradient(#07102b,#283655); }
 .cloudy-night { background: radial-gradient(ellipse at 25% 60%,#74849b,transparent 60%),linear-gradient(#091128,#374559); }
 #presets small { color: #fff4e2ae; }
+
+body.embedded .chrome, body.embedded #weather, body.embedded #loading { display: none !important; }
+.controls { flex-wrap: wrap; gap: 16px; }

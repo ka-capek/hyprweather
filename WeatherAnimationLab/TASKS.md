@@ -85,3 +85,10 @@ are placeholders, not astronomical data. Existing production files remain unchan
 - Native atmosphere/cloud illumination still has the previously documented
   SwiftShader limitation. Real GPU lighting, animation smoothness and final visual
   approval remain with the user. There are no production-app changes.
+
+### Průchod kódem
+- [x] Opravit chybějící ovládání den/noc, odstranit nepoužitý shaderový čas a nevyužívané argumenty částic.
+- [x] Přeskočit výpočty vrstev mlhy bez mlhy/sněhu; znovu používat vektory a barvu ve smyčce.
+- [x] Regrese dat: částečně chybějící srážky, nulová zeměpisná šířka, obnova po výpadku, explicitní mock parametr.
+- [ ] Napojit animace do hlavní aplikace a sjednotit absolutní časy předpovědi pro různá časová pásma.
+- [ ] feat: UI změny aktivního města — až na konci.

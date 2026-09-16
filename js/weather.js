@@ -18,13 +18,13 @@
   var GEOCODE = 'https://geocoding-api.open-meteo.com/v1/search';
   var IP_SERVICES = [
     { url: 'https://get.geojs.io/v1/ip/geo.json', parse: function (d) {
-        return d && d.latitude ? {
+        return d && d.latitude != null && d.longitude != null ? {
           latitude: +d.latitude, longitude: +d.longitude,
           city: d.city, region: d.country, timezone: d.timezone,
         } : null;
       } },
     { url: 'https://ipwho.is/', parse: function (d) {
-        return d && d.success !== false && d.latitude ? {
+        return d && d.success !== false && d.latitude != null && d.longitude != null ? {
           latitude: +d.latitude, longitude: +d.longitude,
           city: d.city, region: d.country,
           timezone: d.timezone && d.timezone.id,
@@ -96,7 +96,7 @@
   function describe(code, isDay) {
     var e = CODES[code] || ['—', 'cloud'];
     var icon = e[1];
-    if (!isDay && NIGHT[icon]) icon = NIGHT[icon];
+    if (isDay === false && NIGHT[icon]) icon = NIGHT[icon];
     return { condition: e[0], icon: icon };
   }
 
@@ -125,7 +125,7 @@
     var svc = IP_SERVICES[i];
     return getJSON(svc.url, 8000).then(function (d) {
       var p = svc.parse(d);
-      if (!p) throw new Error('neočekávaná odpověď');
+      if (!p || !Number.isFinite(p.latitude) || !Number.isFinite(p.longitude)) throw new Error('neočekávaná odpověď');
       p.source = 'ip';
       return p;
     }).catch(function () { return locateByIP(i + 1); });
@@ -157,8 +157,8 @@
       for (var i = startIdx; i + 1 < m.precipitation.length && out.length < 24; i += 2) {
         var a = m.precipitation[i];
         var b = m.precipitation[i + 1];
-        if (a == null && b == null) { out.push(null); continue; }
-        out.push(((a || 0) + (b || 0)) * 2);       // mm za 30 min → mm/h
+        if (a == null || b == null) { out.push(null); continue; }
+        out.push((a + b) * 2);       // mm za 30 min → mm/h
       }
       if (out.length >= 12) {
         return {
@@ -205,7 +205,7 @@
     var cur = d.current || {};
     var h = d.hourly || {};
     var day = d.daily || {};
-    var desc = describe(cur.weather_code, cur.is_day === 1);
+    var desc = describe(cur.weather_code, cur.is_day == null ? null : cur.is_day === 1);
 
     var hIdx = nearestHourIndex(h.time);
     var hourly = [];
@@ -259,7 +259,7 @@
         feelsLike: round(cur.apparent_temperature),
         high: daily.length ? daily[0].high : null,
         low: daily.length ? daily[0].low : null,
-        isDay: cur.is_day === 1,
+        isDay: cur.is_day == null ? null : cur.is_day === 1,
       },
       precip: {
         series: p.series,

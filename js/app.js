@@ -122,6 +122,7 @@
 
   function render(m) {
     model = m;
+    statusOverride = null;
     drawHero();
     drawPrecip();
     drawHourly();
@@ -170,7 +171,7 @@
 
   // `?mock` zobrazí fixture z js/data.js. Slouží k posuzování vzhledu,
   // je zřetelně označené a nikdy se nespustí samo od sebe.
-  if (location.search.indexOf('mock') !== -1 && window.MOCK) {
+  if (new URLSearchParams(location.search).has('mock') && window.MOCK) {
     var m = window.MOCK;
     render({
       location: m.location,
@@ -191,7 +192,8 @@
   if (cached) render(cached);
 
   window.Weather.start(render, function (err) {
-    if (!model) {
+    if (model) { model.meta.stale = true; drawStatus(); }
+    else {
       statusOverride = 'Weather unavailable — ' + (err && err.message ? err.message : 'no data');
       drawStatus();
     }

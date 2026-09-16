@@ -6,17 +6,16 @@ export class CelestialSky {
   constructor(scene, seed) {
     this.material = new THREE.ShaderMaterial({
       uniforms: {
-        time: { value: 0 }, aspect: { value: 1 }, night: { value: 0 },
+        viewport: { value: new THREE.Vector4(0,0,1,1) }, time: { value: 0 }, night: { value: 0 },
         seed: { value: (seed % 10000) / 100 }, pixel: { value: 1 / 1396 },
         lightPosition: { value: new THREE.Vector2(.74, .78) },
         sunAmount: { value: 1 }, moonAmount: { value: 0 }, warmth: { value: 1 },
         snowAmount: { value: 0 },
       },
-      vertexShader: `varying vec2 vUv;
-        void main(){vUv=uv;gl_Position=vec4(position.xy,1.,1.);}`,
+      vertexShader: `void main(){gl_Position=vec4(position.xy,1.,1.);}`,
       fragmentShader: `
-        varying vec2 vUv;
-        uniform float time, aspect, night, seed, pixel, sunAmount, moonAmount, warmth, snowAmount;
+        uniform vec4 viewport;
+        uniform float time, night, seed, pixel, sunAmount, moonAmount, warmth, snowAmount;
         uniform vec2 lightPosition;
         float hash(vec2 p){return fract(sin(dot(p,vec2(127.1,311.7))+seed)*43758.5453);}
         float noise(vec2 p){
@@ -36,10 +35,12 @@ export class CelestialSky {
           return tint*(core+halo)*step(1.-keep,h)*twinkle;
         }
         void main(){
-          vec2 p=vUv*vec2(aspect,1.);
-          vec2 d=(vUv-lightPosition)*vec2(aspect,1.);
+          // Use the active render target, not cached DOM dimensions/interpolated UVs.
+          vec2 screen=(gl_FragCoord.xy-viewport.xy)/viewport.zw;
+          vec2 p=(gl_FragCoord.xy-viewport.xy)/viewport.w;
+          vec2 d=p-lightPosition*vec2(viewport.z/viewport.w,1.);
           float r=length(d);
-          vec3 base=mix(vec3(.012,.025,.058),vec3(.003,.008,.025),vUv.y);
+          vec3 base=mix(vec3(.012,.025,.058),vec3(.003,.008,.025),screen.y);
           // Restrained diffuse star band; stars themselves remain crisp and varied.
           float band=exp(-pow((p.x*.6+p.y-.84)*3.5,2.));
           base+=vec3(.011,.014,.025)*band*noise(p*9.);
@@ -66,13 +67,15 @@ export class CelestialSky {
     this.mesh = new THREE.Mesh(new THREE.PlaneGeometry(2, 2), this.material);
     this.mesh.frustumCulled = false;
     this.mesh.renderOrder = 2;
+    this.mesh.onBeforeRender = renderer => {
+      renderer.getCurrentViewport(this.material.uniforms.viewport.value);
+      this.material.uniforms.pixel.value=1/this.material.uniforms.viewport.value.w;
+    };
     scene.add(this.mesh);
   }
-  update(time, state, light, width, height) {
+  update(time, state, light) {
     const u = this.material.uniforms;
     u.time.value = time;
-    u.aspect.value = width / height;
-    u.pixel.value = 1 / height;
     u.night.value = state.night;
     u.lightPosition.value.set(light.x, light.y);
     u.sunAmount.value = light.sun;

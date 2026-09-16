@@ -52,7 +52,8 @@ let writeTimer = null;
 function loadStore() {
   storePath = path.join(app.getPath('userData'), 'store.json');
   try {
-    store = JSON.parse(fs.readFileSync(storePath, 'utf8'));
+    const loaded = JSON.parse(fs.readFileSync(storePath, 'utf8'));
+    store = loaded && typeof loaded === 'object' && !Array.isArray(loaded) ? loaded : {};
   } catch (err) {
     store = {};        // chybějící nebo poškozený soubor není chyba
   }
@@ -61,6 +62,7 @@ function loadStore() {
 function flushStore() {
   clearTimeout(writeTimer);
   writeTimer = setTimeout(() => {
+    writeTimer = null;
     try {
       fs.writeFileSync(storePath, JSON.stringify(store));
     } catch (err) {
