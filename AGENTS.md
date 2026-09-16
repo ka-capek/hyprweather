@@ -316,3 +316,7 @@ Hlavní aplikace nyní načítá renderer z `WeatherAnimationLab/dist` místo fo
 - Blesky: dlouhé výboje přes výšku či šířku scény, jemné odchylky hlavního kanálu, slabší větve, několik návratových pulzů. HDR kompozice před bloomem; nativní HDR monitoru zde není potvrzené.
 - Mlha: čtyři samostatně posouvané vrstvy hustoty s průhledy. Noční mraky mají vlastní výrazně slabší osvětlení, zvlášť při zataženu.
 - Skutečná hvězdná mapa NASA SVS, kulová projekce podle souřadnic města a UTC. Jde o přibližnou orientaci (bez precese/refrakce), jas je výtvarně upravený a měsíc nadále placeholder. Zdroj a podmínky v `WeatherAnimationLab/ASSETS.md`.
+
+## Schválené živé zobrazení
+
+Uživatel schválil vzhled animací. Hlavní aplikace používá pouze scénu podle aktuálního počasí a denní doby vybraného města. Název města otevírá výběr lokality bez doprovodné šipky.

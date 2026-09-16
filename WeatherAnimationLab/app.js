@@ -22,7 +22,7 @@ const rad = THREE.MathUtils.degToRad;
 const params = new URLSearchParams(location.search);
 const embedded = params.has('embedded');
 if (embedded) document.body.classList.add('embedded');
-let liveModel = null, lastLiveMinute = -1, notifyRendered = false, previewIndex = 0;
+let liveModel = null, lastLiveMinute = -1, notifyRendered = false;
 const softwareCheck = params.get('quality') === 'low';
 const seed = params.has('seed') ? Number(params.get('seed')) >>> 0 : crypto.getRandomValues(new Uint32Array(1))[0];
 const random = createRandom(seed);
@@ -272,7 +272,7 @@ async function init() {
   renderer.setAnimationLoop(now=>{
     const dt=Math.min((now-previous)/1000,.08); previous=now;
     if(embedded && !liveModel)return;
-    if(embedded && previewIndex===0 && liveModel && Math.floor(Date.now()/60000)!==lastLiveMinute) applyLiveModel(liveModel);
+    if(embedded && liveModel && Math.floor(Date.now()/60000)!==lastLiveMinute) applyLiveModel(liveModel);
 
     if (!paused) {
       elapsed+=dt;starClock=Date.now();
@@ -346,9 +346,7 @@ function applyLiveModel(model) {
   const next=weatherScene(model.current,model.location);
   if(!next)return;
   const first=!liveModel;
-  if(liveModel && (liveModel.location?.latitude!==model.location?.latitude || liveModel.location?.longitude!==model.location?.longitude))previewIndex=0;
   liveModel=model;lastLiveMinute=Math.floor(Date.now()/60000);
-  if(previewIndex!==0)return;
   key='live';target=next;cycle=false;notifyRendered=true;
   const latitude=model.location?.latitude, longitude=model.location?.longitude;
   if(Number.isFinite(latitude) && Number.isFinite(longitude)){
@@ -360,22 +358,9 @@ function applyLiveModel(model) {
   if(first)current={...target};
   if(!next.lightning)flashAge=99;
 }
-const sceneSequence = [null, ...Object.keys(presets).map(name=>({name})),
-  ...['light-rain','rain','downpour','storm','snow','blizzard','fog','wind'].map(name=>({name,night:true}))];
 window.addEventListener('message',event=>{
   if(!embedded || event.source!==parent || event.origin!==location.origin)return;
   if(event.data?.type==='weather-model')applyLiveModel(event.data.model);
-  if(event.data?.type==='atmosphere-step' && liveModel){
-    const step=event.data.step;
-    if(step!==1 && step!==-1)return;
-    previewIndex=(previewIndex+step+sceneSequence.length)%sceneSequence.length;
-    const scene=sceneSequence[previewIndex];
-    if(!scene)applyLiveModel(liveModel);
-    else {
-      setScene(scene.name);
-      if(scene.night)toggleDayNight();
-    }
-  }
 });
 $('day-night').addEventListener('click',toggleDayNight);
 $('framing').addEventListener('click',toggleFraming);

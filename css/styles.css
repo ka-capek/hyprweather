@@ -391,7 +391,6 @@ body {
 .app.has-atmosphere > .sky-veil { display: none; }
 
 #choose-city { position: relative; padding: 0; border: 0; background: none; color: inherit; font: inherit; letter-spacing: inherit; cursor: pointer; }
-.city-chevron { position: absolute; left: calc(100% + 10px); top: .28em; font-size: .55em; opacity: .65; }
 #choose-city:focus-visible { outline: 2px solid #aacbee; outline-offset: 8px; border-radius: 5px; }
 #location-dialog { box-sizing: border-box; width: min(460px, calc(100vw - 40px)); max-height: calc(100vh - 64px); padding: 26px; border: 1px solid #ffffff26; border-radius: 20px; color: var(--ink); background: #111e30; box-shadow: 0 24px 100px #0008; font-family: var(--font); }
 #location-dialog::backdrop { background: #02091699; backdrop-filter: blur(8px); }
