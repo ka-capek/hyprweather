@@ -41,6 +41,10 @@ jobs:
           key: electron-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
           restore-keys: electron-${{ runner.os }}-
 
+      # fpm staví .MTREE pacman balíčku přes bsdtar, který na runneru není.
+      - name: bsdtar pro pacman balíček
+        run: sudo apt-get update && sudo apt-get install -y libarchive-tools
+
       - run: npm ci
 
       - name: Tests
@@ -56,8 +60,9 @@ jobs:
             exit 1
           fi
 
+      # --publish never: vydání zakládá až krok níž přes gh, ne electron-builder.
       - name: Build
-        run: npm run dist
+        run: npm run dist -- --publish never
 
       - name: Kontrolní součty
         run: |
