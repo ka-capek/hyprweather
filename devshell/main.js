@@ -20,6 +20,12 @@ const { pathToFileURL } = require('url');
 
 const ROOT = path.join(__dirname, '..');
 
+// Wayland: nativní okno místo XWayland. Ve vývoji totéž dělá run.sh.
+if (process.platform === 'linux') {
+  app.commandLine.appendSwitch('ozone-platform-hint', 'auto');
+  app.commandLine.appendSwitch('enable-features', 'WaylandWindowDecorations');
+}
+
 /*
  * Stránka se servíruje přes vlastní schéma `app://`, ne přes file://.
  * Důvod: pod file:// je origin neprůhledný a Chromium localStorage mezi
@@ -40,7 +46,12 @@ function serveFromRoot(request) {
   if (full !== ROOT && !full.startsWith(ROOT + path.sep)) {
     return new Response('Forbidden', { status: 403 });
   }
-  return net.fetch(pathToFileURL(full).toString());
+
+  // V balíčku leží scéna oblohy mimo asar (asarUnpack) — 36 MB dat načítaných
+  // z iframu. Co je rozbalené, čti z app.asar.unpacked, zbytek z archivu.
+  const onDisk = full.replace(`app.asar${path.sep}`, `app.asar.unpacked${path.sep}`);
+  const source = onDisk !== full && fs.existsSync(onDisk) ? onDisk : full;
+  return net.fetch(pathToFileURL(source).toString());
 }
 
 /* --- Trvalé úložiště ------------------------------------------- */
@@ -141,7 +152,7 @@ function createWindow() {
     if (input.control && key === 'q') win.close();
     else if (key === 'f5' || (input.control && key === 'r')) win.reload();
     else if (key === 'f12') win.webContents.toggleDevTools({ mode: 'detach' });
-    else if (PAGES[key]) {
+    else if (!app.isPackaged && PAGES[key]) {
       win.webContents.executeJavaScript(`Boolean(document.querySelector('dialog[open]') || document.activeElement?.matches('input, textarea, select, [contenteditable]'))`)
         .then(editing => { if(!editing && !win.isDestroyed())win.loadURL(pageURL(PAGES[key])); });
       return;

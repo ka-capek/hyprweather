@@ -1,0 +1,21 @@
+{
+  "name": "hyprweather",
+  "version": "0.1.0",
+  "description": "Atmospheric Linux weather app with an animated sky",
+  "license": "GPL-3.0-or-later",
+  "author": "ka-capek <kcapek46@gmail.com>",
+  "homepage": "https://github.com/ka-capek/hyprweather",
+  "private": true,
+  "main": "devshell/main.js",
+  "desktopName": "hyprweather.desktop",
+  "scripts": {
+    "icons": "for s in 16 32 48 64 128 256 512 1024; do rsvg-convert -w $s -h $s build/icon.svg -o build/icons/${s}x${s}.png; done",
+    "build:sky": "npm --prefix WeatherAnimationLab ci --legacy-peer-deps --no-audit --no-fund && npm --prefix WeatherAnimationLab run build",
+    "pack": "npm run build:sky && electron-builder --dir",
+    "dist": "npm run build:sky && electron-builder"
+  },
+  "devDependencies": {
+    "electron": "^44.4.1",
+    "electron-builder": "^26.15.3"
+  }
+}

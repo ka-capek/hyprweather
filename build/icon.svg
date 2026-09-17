@@ -1,0 +1,34 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" width="1024" height="1024">
+  <defs>
+    <linearGradient id="sky" x1="0" y1="0" x2="0.35" y2="1">
+      <stop offset="0" stop-color="#2A4A76"/>
+      <stop offset="0.55" stop-color="#16263C"/>
+      <stop offset="1" stop-color="#0D131C"/>
+    </linearGradient>
+    <radialGradient id="glow" cx="0.5" cy="0.5" r="0.5">
+      <stop offset="0" stop-color="#E8C68A" stop-opacity="0.75"/>
+      <stop offset="0.55" stop-color="#E8C68A" stop-opacity="0.18"/>
+      <stop offset="1" stop-color="#E8C68A" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="cloud" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#FFFFFF" stop-opacity="0.97"/>
+      <stop offset="1" stop-color="#C9D8EC" stop-opacity="0.9"/>
+    </linearGradient>
+  </defs>
+
+  <rect width="1024" height="1024" rx="228" fill="url(#sky)"/>
+
+  <!-- sluneční záře a kotouč, částečně za oblakem -->
+  <circle cx="392" cy="356" r="290" fill="url(#glow)"/>
+  <circle cx="392" cy="356" r="118" fill="#E8C68A"/>
+
+  <!-- oblak podle ikony i-partly z aplikace -->
+  <path fill="url(#cloud)" d="M430 730h248a132 132 0 0 0 16-263 198 198 0 0 0-376-62 124 124 0 0 0 68 325Z"/>
+
+  <!-- srážkové sloupce v barvě grafu -->
+  <g stroke="#7FB6EF" stroke-width="30" stroke-linecap="round" opacity="0.92">
+    <path d="M392 804v62"/>
+    <path d="M512 804v104"/>
+    <path d="M632 804v62"/>
+  </g>
+</svg>

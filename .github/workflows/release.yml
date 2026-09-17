@@ -1,0 +1,84 @@
+# Sestaví balíčky pro Linux a přiloží je k vydání na GitHubu.
+#
+#   git tag v0.1.0 && git push origin v0.1.0    → vydání s AppImage a .pacman
+#   ruční spuštění (workflow_dispatch)          → jen artefakt běhu, bez vydání
+#
+# Verze v tagu musí sedět s `version` v package.json, jinak sestavení skončí.
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  linux:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: |
+            package-lock.json
+            WeatherAnimationLab/package-lock.json
+
+      # Electron a jeho nástroje jsou stovky MB a mezi vydáními se nemění.
+      - name: Cache Electron
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cache/electron
+            ~/.cache/electron-builder
+          key: electron-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
+          restore-keys: electron-${{ runner.os }}-
+
+      - run: npm ci
+
+      - name: Tests
+        run: node --test tests/*.cjs
+
+      - name: Tag odpovídá verzi v package.json
+        if: startsWith(github.ref, 'refs/tags/v')
+        run: |
+          tag="${GITHUB_REF_NAME#v}"
+          pkg="$(node -p "require('./package.json').version")"
+          if [ "$tag" != "$pkg" ]; then
+            echo "Tag $GITHUB_REF_NAME neodpovídá package.json ($pkg)." >&2
+            exit 1
+          fi
+
+      - name: Build
+        run: npm run dist
+
+      - name: Kontrolní součty
+        run: |
+          cd release
+          sha256sum *.AppImage *.pacman | tee SHA256SUMS.txt
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: hyprweather-linux-x64
+          path: |
+            release/*.AppImage
+            release/*.pacman
+            release/SHA256SUMS.txt
+          retention-days: 14
+
+      - name: Vydání na GitHubu
+        if: startsWith(github.ref, 'refs/tags/v')
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "$GITHUB_REF_NAME" \
+            release/*.AppImage release/*.pacman release/SHA256SUMS.txt \
+            --title "Weather $GITHUB_REF_NAME" \
+            --generate-notes

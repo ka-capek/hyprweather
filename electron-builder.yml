@@ -1,0 +1,70 @@
+# Sestavení instalovatelného balíčku pro cílový Linux (CachyOS/Arch, x86_64).
+#
+#   npm run dist    AppImage + pacman balíček do release/
+#   npm run pack    jen rozbalený adresář release/linux-unpacked pro zkoušku
+#
+# Před oběma se vždy sestaví animované pozadí (Vite build ve WeatherAnimationLab).
+appId: io.github.capekk23.hyprweather
+productName: Weather
+copyright: © 2026 ka-capek · GPL-3.0-or-later
+
+# Balíček se nikam nenahrává, takže nevznikají ani metadata pro automatické
+# aktualizace (latest-linux.yml, app-update.yml) — žádný update server není.
+publish: null
+
+directories:
+  output: release
+  buildResources: build
+
+# Bílá listina — do balíčku jde jen to, co aplikace za běhu potřebuje.
+# Laboratorní stránky, testy, skripty a zdroje animace zůstávají mimo.
+files:
+  - index.html
+  - css/**/*
+  - js/**/*
+  - assets/**/*
+  - devshell/**/*
+  - WeatherAnimationLab/dist/**/*
+  - LICENSE
+
+# Scéna oblohy je 36 MB dat (mraky, atmosféra, hvězdná mapa) a načítá se
+# z iframu přes vlastní schéma app://. Mimo asar, aby šla číst přímo.
+asarUnpack:
+  - WeatherAnimationLab/dist/**/*
+
+linux:
+  target:
+    - AppImage
+    - pacman
+  executableName: hyprweather
+  # Jméno souboru nese název projektu a architekturu, ne productName —
+  # ať je z odkazu ve vydání jasné, co se stahuje.
+  artifactName: ${name}-${version}-${arch}.${ext}
+  # Jméno .desktop souboru = app_id okna. Bez toho Hyprland/GNOME nespojí
+  # běžící okno s ikonou a názvem aplikace.
+  syncDesktopName: true
+  category: Utility
+  icon: build/icons
+  synopsis: Atmospheric weather app with an animated sky
+  description: Weather app for the Linux desktop with an animated sky rendered from live Open-Meteo data. No account and no API key.
+  desktop:
+    entry:
+      StartupWMClass: hyprweather
+      Keywords: weather;forecast;sky;
+
+# Balíček si nese vlastní Electron, takže závisí jen na systémových knihovnách,
+# proti kterým je slinkovaný. Výchozí seznam electron-builderu je debianí a
+# obsahuje i libappindicator-gtk3, který v repozitářích Archu není — pacman by
+# instalaci odmítl. Ověřeno přes ldd zabaleného binárního souboru.
+pacman:
+  depends:
+    - gtk3
+    - nss
+    - alsa-lib
+    - libcups
+    - libxkbcommon
+    - libdrm
+    - libxdamage
+    - libxcomposite
+    - libxrandr
+    - mesa

@@ -4,3 +4,7 @@ preview-*.png
 # Uživatelská data obalu (cache počasí, zvolené město) žijí v ~/.config
 # Dočasné profily prohlížeče z screenshotů
 *.log
+
+# Nástroje a výstupy balení — Electron, electron-builder a hotové balíčky
+/node_modules/
+/release/

@@ -1,0 +1,57 @@
+# Maintainer: ka-capek <kcapek46@gmail.com>
+#
+# Balíček pro AUR: bere hotový AppImage z vydání na GitHubu a rozbalí ho
+# do /opt. Nic se nekompiluje, aplikace si nese vlastní Electron.
+#
+# Novou verzi vyrob `./update.sh <verze>` — doplní pkgver, stáhne kontrolní
+# součet z vydání a přegeneruje .SRCINFO.
+
+pkgname=hyprweather-bin
+_appname=hyprweather
+pkgver=0.1.0
+pkgrel=1
+pkgdesc='Atmospheric weather app with an animated sky, live Open-Meteo data'
+arch=('x86_64')
+url='https://github.com/ka-capek/hyprweather'
+license=('GPL-3.0-or-later')
+depends=('gtk3' 'nss' 'alsa-lib' 'libcups' 'libxkbcommon' 'libdrm' 'libxdamage'
+         'libxcomposite' 'libxrandr' 'mesa')
+provides=("$_appname=$pkgver")
+conflicts=("$_appname")
+options=('!strip' '!debug')
+source=("$_appname-$pkgver.AppImage::$url/releases/download/v$pkgver/$_appname-$pkgver-x86_64.AppImage")
+noextract=("$_appname-$pkgver.AppImage")
+sha256sums=('SKIP')
+
+prepare() {
+  chmod +x "$_appname-$pkgver.AppImage"
+  "./$_appname-$pkgver.AppImage" --appimage-extract >/dev/null
+}
+
+package() {
+  # Užitečný obsah AppImage jde do /opt; obal AppImage (AppRun, .DirIcon,
+  # kořenová ikona a .desktop) do balíčku nepatří — ty řeší pacman sám.
+  install -dm755 "$pkgdir/opt/$_appname"
+  cp -a --no-preserve=ownership squashfs-root/. "$pkgdir/opt/$_appname/"
+  rm -rf "$pkgdir/opt/$_appname"/{AppRun,.DirIcon,usr,"$_appname.png","$_appname.desktop"}
+
+  install -dm755 "$pkgdir/usr/bin"
+  ln -s "/opt/$_appname/$_appname" "$pkgdir/usr/bin/$_appname"
+
+  # Spouštěč míří na /opt, ne na AppRun, a už nepotřebuje --no-sandbox:
+  # v balíčku běží Chromium v sandboxu přes jmenné prostory uživatele.
+  install -Dm644 "squashfs-root/$_appname.desktop" \
+    "$pkgdir/usr/share/applications/$_appname.desktop"
+  sed -i -e "s|^Exec=.*|Exec=/opt/$_appname/$_appname %U|" \
+         -e '/^X-AppImage-Version=/d' \
+    "$pkgdir/usr/share/applications/$_appname.desktop"
+
+  local size
+  for size in 16 32 48 64 128 256 512 1024; do
+    install -Dm644 "squashfs-root/usr/share/icons/hicolor/${size}x${size}/apps/$_appname.png" \
+      "$pkgdir/usr/share/icons/hicolor/${size}x${size}/apps/$_appname.png"
+  done
+
+  install -Dm644 "$pkgdir/opt/$_appname/LICENSE.electron.txt" \
+    "$pkgdir/usr/share/licenses/$pkgname/LICENSE.electron.txt"
+}

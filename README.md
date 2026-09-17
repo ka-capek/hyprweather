@@ -57,6 +57,53 @@ velikosti a bez scrollování — stejně jako aplikaci.
 `shot.sh` běží přes Firefox headless. Pixelově shodný snímek přímo z okna
 aplikace dá `./run.sh --capture=out.png`.
 
+### Instalovatelný balíček
+
+```sh
+npm install      # jednou: Electron a electron-builder
+npm run dist     # AppImage + pacman balíček do release/
+npm run pack     # jen rozbalený adresář release/linux-unpacked na zkoušku
+```
+
+| Výsledek | Jak se použije |
+|---|---|
+| `release/hyprweather-<verze>-x86_64.AppImage` | `chmod +x` a spustit, nic se neinstaluje |
+| `release/hyprweather-<verze>-x64.pacman` | `sudo pacman -U release/hyprweather-<verze>-x64.pacman` |
+
+Oba balíčky si nesou vlastní Electron (~320 MB rozbaleno), takže nezávisí na
+systémovém `electron43` ani na Node.js. Pacman verze se instaluje do
+`/opt/Weather`, přidá položku menu **Weather** s ikonou; okno má `app_id`
+`hyprweather` — podle toho ho adresují pravidla Hyprlandu. Odinstaluje se
+`sudo pacman -R hyprweather`.
+
+Cache počasí a vybrané město žijí v `~/.config/hyprweather/store.json`.
+Vývojové spuštění přes `./run.sh` má vlastní úložiště, balíček s ním nesdílí nic.
+
+V balíčku jsou jen soubory, které aplikace potřebuje za běhu — laboratorní
+stránky, testy a zdroje animace zůstávají mimo. Konfigurace je
+v [`electron-builder.yml`](electron-builder.yml), ikona vzniká z `build/icon.svg`
+přes `npm run icons` (vyžaduje `rsvg-convert`).
+
+### Vydání na GitHubu
+
+Balíčky sestavuje GitHub Actions — [`.github/workflows/release.yml`](.github/workflows/release.yml):
+
+```sh
+# verze v package.json a v tagu se musí shodovat, jinak sestavení skončí
+git tag v0.1.0 && git push origin v0.1.0
+```
+
+Tag `v*` spustí testy, sestavení a vytvoří vydání s AppImage, `.pacman`
+a `SHA256SUMS.txt`. Ruční spuštění (workflow_dispatch) balíčky jen přiloží
+k běhu jako artefakt a nic nevydává.
+
+### AUR
+
+[`packaging/aur/`](packaging/aur/) drží `PKGBUILD` balíčku **`hyprweather-bin`**,
+který bere AppImage z vydání a rozbalí ho do `/opt/hyprweather`. Postup pro nové
+verze i pro první odeslání do AUR je v [`packaging/aur/README.md`](packaging/aur/README.md).
+Po přidání se aplikace instaluje `yay -S hyprweather-bin`.
+
 ## Laboratoř vzhledů
 
 Dvě nezávislé volby, dvě stránky. Otevři je přes `./run.sh` (klávesy 1–4),
@@ -86,15 +133,21 @@ lab/precip-styles.html  způsoby kódování intenzity (vývojová stránka)
 lab/shapes-in-app.html  tvary ve skutečném panelu aplikace (vývojová stránka)
 lab/_lab.css            společný rám vývojových stránek
 devshell/               Electron obal: okno, schéma app://, trvalé úložiště
+WeatherAnimationLab/    animovaná obloha (Three.js, Vite) — sestavuje se do dist/
 assets/img/             fotografie pozadí
 assets/fonts/           Inter (OFL) + licence
+build/                  ikona aplikace (SVG a vygenerované PNG)
+electron-builder.yml    sestavení AppImage a pacman balíčku
+packaging/aur/          PKGBUILD pro AUR (hyprweather-bin)
+.github/workflows/      sestavení a vydání balíčků na GitHubu
 run.sh                  spuštění jako okno
 shot.sh                 screenshot v cílovém rozměru
 ASSETS.md               zdroje a licence přibalených souborů
 AGENTS.md               zadání a plán všech etap
 ```
 
-Žádný build, žádné npm závislosti, žádný backend.
+Samotná aplikace je prostý HTML, CSS a JavaScript bez backendu. Build a npm
+závislosti potřebuje jen animované pozadí a balení do AppImage či pacman balíčku.
 
 ## Ukázkový scénář
 
