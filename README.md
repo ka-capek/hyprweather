@@ -1,6 +1,6 @@
-# WeatherApp
+# HyprWeather
 
-This is meant as a pretty side widget for my 49" monitor.
+This is meant as a pretty side widget for my 49" monitor and hyprland.
 Taking heavy inspiration from weather app on iOS.
 Performance is terrible at the moment. Looks were the only criteria.
 Fully vibecoded.
