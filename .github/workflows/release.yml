@@ -83,7 +83,28 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh release create "$GITHUB_REF_NAME" \
-            release/*.AppImage release/*.pacman release/SHA256SUMS.txt \
-            --title "Weather $GITHUB_REF_NAME" \
-            --generate-notes
+          # Vydání vzniká prázdné a soubory se přidávají zvlášť. Když `gh release
+          # create` nahrává soubory rovnou a jeden upload selže, smaže celé vydání
+          # — a upload stopadesátimegového AppImage občas skončí HTTP 500.
+          gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1 ||
+            gh release create "$GITHUB_REF_NAME" \
+              --title "Weather ${GITHUB_REF_NAME#v}" \
+              --generate-notes
+
+          status=0
+          for file in release/*.AppImage release/*.pacman release/SHA256SUMS.txt; do
+            uploaded=0
+            for try in 1 2 3; do
+              if gh release upload "$GITHUB_REF_NAME" "$file" --clobber; then
+                uploaded=1
+                break
+              fi
+              echo "Upload $file selhal (pokus $try), zkouším znovu." >&2
+              sleep $((try * 20))
+            done
+            if [ "$uploaded" != 1 ]; then
+              echo "::error::$file se nepodařilo nahrát"
+              status=1
+            fi
+          done
+          exit $status
