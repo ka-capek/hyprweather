@@ -347,3 +347,11 @@ Na nový výslovný pokyn vráceno skryté testování scén šipkami vlevo/vpra
 Ověření: build a všech 11 testovacích souborů prošly. Nový test kontroluje polohu Měsíce v záběru, zachování fáze a přivráceného povrchu po přesunu v průběhu 24 hodin, včetně skutečné polohy pod obzorem. Electron ověřil živý start, přepínání a obě hranice cyklu, obnovu dat během testování, Escape a blokování zkratek v dialogu města. Vizuálně zkontrolována zatažená noc a jasná noc s Měsícem.
 
 Další požadovaný průchod: vylepšit hloubku a prostorový dojem mlhy; uživatel navrhuje případně jemný horizont. Nyní chce nejprve push hotových změn k průběžnému testování. Horizont zatím není rozhodnutý ani implementovaný.
+
+### TODO pro další vizuální průchod
+
+- Mlha: výraznější hloubka, prostorové vrstvy a pohyb; prozkoumat jemný náznak horizontu, pokud pomůže vnímání vzdálenosti.
+- Ostrost hvězd: uživatel hlásí neostrou hvězdnou oblohu na svém 1440p displeji. Prověřit rozlišení zdrojové mapy, renderovací rozlišení, vzorkování a postprocessing; příčina zatím není ověřená. Zachovat krásu i dosavadní výkonové úspory.
+- Jemná animace hvězd: několik hvězd má přirozeně a nenápadně poblikávat, inspirováno Apple Weather; ne synchronizované blikání celé oblohy.
+
+Zdroj: výslovný požadavek uživatele z 21. září 2026. Nyní pouze zaznamenat TODO spolu s mlhou; tyto úpravy zatím nejsou implementované.
