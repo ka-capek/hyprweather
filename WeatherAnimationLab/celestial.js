@@ -7,11 +7,14 @@ import {LunarState} from './lunar-state.js';
 export class CelestialSky {
   constructor(scene, seed, starMap, moonMap) {
     this.lunar = new LunarState();
+    this.moonRotation = new THREE.Quaternion();
+    this.moonMatrix = new THREE.Matrix4();
+    this.moonInverse = new THREE.Matrix3();
     this.material = new THREE.ShaderMaterial({
       uniforms: {
         starMap:{value:starMap},sidereal:{value:0},
-        moonMap:{value:moonMap},moonDirection:{value:this.lunar.direction},
-        lunarSun:{value:this.lunar.sunDirection},lunarSurface:{value:this.lunar.surfaceRotation},
+        moonMap:{value:moonMap},moonDirection:{value:new THREE.Vector3()},
+        lunarSun:{value:new THREE.Vector3()},lunarSurface:{value:new THREE.Matrix3()},
         moonRadius:{value:.0045},moonFraction:{value:0},
         projectionInverse:{value:new THREE.Matrix4()},cameraRotation:{value:new THREE.Matrix3()},
         viewport: { value: new THREE.Vector4(0,0,1,1) }, time: { value: 0 }, night: { value: 0 },
@@ -109,9 +112,18 @@ export class CelestialSky {
     u.night.value = state.night;
     u.lightPosition.value.set(light.x, light.y);
     u.sunAmount.value = light.sun;
-    u.moonAmount.value = 1-state.blizzard;
+    u.moonAmount.value = light.moon;
+    // Relocate the whole lunar frame, including sunlight and surface normals:
+    // the real phase and near-side texture survive artistic screen placement.
+    u.moonDirection.value.set(light.x*2-1,Math.max(.78,light.y)*2-1,.5)
+      .unproject(camera).sub(camera.position).normalize();
+    this.moonRotation.setFromUnitVectors(this.lunar.direction,u.moonDirection.value);
+    u.lunarSun.value.copy(this.lunar.sunDirection).applyQuaternion(this.moonRotation);
+    this.moonMatrix.makeRotationFromQuaternion(this.moonRotation);
+    this.moonInverse.setFromMatrix4(this.moonMatrix).transpose();
+    u.lunarSurface.value.copy(this.lunar.surfaceRotation).multiply(this.moonInverse);
     // Modest visual magnification preserves readable surface detail at widget
-    // size; position, phase, orientation and distance variation remain real.
+    // size; phase, libration and distance variation remain real.
     u.moonRadius.value = this.lunar.angularRadius*2.4;
     u.moonFraction.value = this.lunar.fraction;
     u.warmth.value = light.warmth;

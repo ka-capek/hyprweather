@@ -30,5 +30,12 @@
       host.closest('.app').classList.remove('has-atmosphere');
     }
   });
+  window.addEventListener('keydown', function (event) {
+    if (!ready || !model || event.defaultPrevented || event.repeat || event.altKey || event.ctrlKey || event.metaKey || event.shiftKey) return;
+    if (document.querySelector('dialog[open]') || event.target.closest?.('input, textarea, select, [contenteditable="true"], [role="slider"]')) return;
+    var step = { ArrowLeft: -1, ArrowRight: 1 }[event.key];
+    if (step) { event.preventDefault(); send({ type: 'atmosphere-step', step: step }); }
+    else if (event.key === 'Escape') send({ type: 'atmosphere-live' });
+  });
   host.append(frame);
 }());

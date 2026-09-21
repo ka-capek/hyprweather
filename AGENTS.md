@@ -337,3 +337,13 @@ Uživatel požaduje skutečný Měsíc a HDR; zatažená noc mu připadala pří
 - Electron 44.4.1 / Chromium 152 zde nemá WebGL drawingBufferToneMapping ani po zapnutí zkoušeného WebGLToneMapping flagu. Softwarový test WebGPU shaderu ověřil float16 výstup nad SDR bílou; nativní HDR swapchain není v místním headless backendu podporovaný. Skutečný HDR jas musí potvrdit uživatel na svém monitoru, neslibovat jej pouze z úspěšné konfigurace canvasu.
 
 Ověření této iterace: build a všech 10 testovacích souborů prošly, včetně fáze/natočení Měsíce, plynulého pohybu mezi minutovými výpočty a HDR fallbacku při chybě zařízení/změně displeje. V hlavní aplikaci prošlo napojení aktuálního počasí a výběr města. Pořízeny a zkontrolovány snímky měsíčního povrchu a plně zatažené noci. WebGPU shader na skutečné offscreen float16 textuře vytvořil hodnoty nad 1; test nativní F16 canvas vrstvy na SwiftShaderu korektně přešel do SDR.
+
+## Upřesnění vzhledu a testování (21. září 2026)
+
+Uživatel výslovně zvolil dramatičtější a světlejší modrošedé mraky za zatažené noci. U Měsíce chce skutečnou fázi, ale polohu upravenou pro krásnou kompozici: v noci je nad UI mimo střed, i když astronomicky leží pod obzorem. Společná rotace povrchu a osvětlení zachovává fázi a libraci; mraky ho stále zakrývají. Tyto volby nahrazují výše uvedené výchozí předpoklady.
+
+Na nový výslovný pokyn vráceno skryté testování scén šipkami vlevo/vpravo, bez nápovědy v UI. Cyklus obsahuje živé počasí a všech 28 WMO kódů ve dne i v noci; Escape vrací nejnovější živá data. Spuštění a změna města používají živé počasí, testovací volba se neukládá. Obnova dat na pozadí nepřerušuje test; město a meteorologické údaje v UI zůstávají skutečné. Zkratky nezasahují do otevřeného dialogu ani psaní.
+
+Ověření: build a všech 11 testovacích souborů prošly. Nový test kontroluje polohu Měsíce v záběru, zachování fáze a přivráceného povrchu po přesunu v průběhu 24 hodin, včetně skutečné polohy pod obzorem. Electron ověřil živý start, přepínání a obě hranice cyklu, obnovu dat během testování, Escape a blokování zkratek v dialogu města. Vizuálně zkontrolována zatažená noc a jasná noc s Měsícem.
+
+Další požadovaný průchod: vylepšit hloubku a prostorový dojem mlhy; uživatel navrhuje případně jemný horizont. Nyní chce nejprve push hotových změn k průběžnému testování. Horizont zatím není rozhodnutý ani implementovaný.

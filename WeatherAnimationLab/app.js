@@ -3,7 +3,7 @@ import { EffectComposer, RenderPass, EffectPass, ToneMappingEffect, ToneMappingM
 import { SkyMaterial, PrecomputedTexturesLoader, AerialPerspectiveEffect, AtmosphereParameters } from '@takram/three-atmosphere';
 import { CloudsEffect } from '@takram/three-clouds';
 import { STBNLoader, Geodetic, Ellipsoid } from '@takram/three-geospatial';
-import { weatherScene } from './weather-scene.js';
+import { weatherScene, WMO } from './weather-scene.js';
 import { CelestialSky } from './celestial.js';
 import { framingSettings, lightComposition } from './composition.js';
 import { Lightning } from './lightning.js';
@@ -24,6 +24,8 @@ const params = new URLSearchParams(location.search);
 const embedded = params.has('embedded');
 if (embedded) document.body.classList.add('embedded');
 let liveModel = null, lastLiveMinute = -1, notifyRendered = false;
+let previewIndex = -1;
+const previewScenes = Object.keys(WMO).flatMap(code => [true, false].map(isDay => ({weatherCode:Number(code),isDay})));
 const softwareCheck = params.get('quality') === 'low';
 const seed = params.has('seed') ? Number(params.get('seed')) >>> 0 : crypto.getRandomValues(new Uint32Array(1))[0];
 const random = createRandom(seed);
@@ -53,32 +55,14 @@ let key = 'sunset', current, target, paused = false, cycle = false, frames = 0, 
 let flashAge = 99, nextFlash = 6;
 let renderer, camera, composer, clouds, skyMaterial, atmosphere, particles, grade, bloom, celestial, lightning, lightningPass, cloudAtmosphere, hdrLightning;
 let localFrame;
-let viewHeading=0, viewTilt=rad(framingSettings(framing).tilt);
 const viewAim=new THREE.Vector3();
 function aimCamera() {
-  viewAim.set(Math.sin(viewHeading)*Math.cos(viewTilt),Math.cos(viewHeading)*Math.cos(viewTilt),Math.sin(viewTilt));
+  const tilt=rad(framingSettings(framing).tilt);
+  viewAim.set(0,Math.cos(tilt),Math.sin(tilt));
   viewAim.transformDirection(localFrame).multiplyScalar(10000).add(camera.position);
   camera.lookAt(viewAim);camera.updateMatrixWorld(true);
 }
-function followMoon(dt) {
-  const lunar=celestial.lunar, basis=localFrame.elements;
-  let heading=0, tilt=rad(framingSettings(framing).tilt);
-  if(current.night>0 && lunar.altitude>0){
-    const v=lunar.direction;
-    const east=v.x*basis[0]+v.y*basis[1]+v.z*basis[2];
-    const north=v.x*basis[4]+v.y*basis[5]+v.z*basis[6];
-    const halfFov=Math.tan(rad(camera.fov)*.5);
-    heading=Math.atan2(east,north)-Math.atan(.35*halfFov*camera.aspect);
-    tilt=THREE.MathUtils.lerp(tilt,Math.max(tilt,Math.min(rad(70),lunar.altitude-Math.atan(.5*halfFov))),current.night);
-    heading*=current.night;
-  }
-  const difference=Math.atan2(Math.sin(heading-viewHeading),Math.cos(heading-viewHeading));
-  const blend=frames===0?1:1-Math.exp(-dt*.7);
-  if(Math.abs(difference)+Math.abs(tilt-viewTilt)>1e-8){
-    viewHeading+=difference*blend;viewTilt+= (tilt-viewTilt)*blend;
-    aimCamera();
-  }
-}
+
 
 // A restrained display-space grade, plus a spatial lightning pulse. Weather
 // volumes and their illumination are rendered by Takram before this pass.
@@ -128,13 +112,14 @@ class WeatherGrade extends Effect {
             color=mix(color,bank,opacity);
           }
         }
-        // Low-level scattered urban/sky glow: a soft moving fill restricted to
+        // Dramatic scattered sky glow: moving highlights restricted to
         // the renderer's cloud opacity, never painted across clear star gaps.
         if(nightOvercast>.001){
           vec2 q=uv*vec2(viewAspect,1.)*3.2+fogDrift+fogMotion*.35;
           float bank=.68*noise2(q)+.23*noise2(q*2.07+7.)+.09*noise2(q*4.13);
-          float fill=smoothstep(.2,.8,bank)*texture2D(cloudOpacity,uv).a*nightOvercast;
-          color+=vec3(.018,.030,.048)*fill;
+          float highlight=pow(smoothstep(.30,.76,bank),1.4);
+          float fill=highlight*texture2D(cloudOpacity,uv).a*nightOvercast;
+          color+=vec3(.048,.071,.105)*fill;
         }
         // Fine distant snow uses a much cheaper extinction field.
         float snowVeil=snowHaze;
@@ -321,7 +306,7 @@ async function init() {
   renderer.setAnimationLoop(now=>{
     const dt=Math.min((now-previous)/1000,.08); previous=now;
     if(embedded && !liveModel)return;
-    if(embedded && liveModel && Math.floor(Date.now()/60000)!==lastLiveMinute) applyLiveModel(liveModel);
+    if(embedded && previewIndex<0 && liveModel && Math.floor(Date.now()/60000)!==lastLiveMinute) applyLiveModel(liveModel);
 
     if (!paused) {
       elapsed+=dt;starClock=Date.now();
@@ -342,14 +327,13 @@ async function init() {
     const elev=rad(current.elevation), az=rad(current.azimuth);
     sun.set(Math.sin(az)*Math.cos(elev),Math.cos(az)*Math.cos(elev),Math.sin(elev)).transformDirection(localFrame);
     skyMaterial.sunDirection.copy(sun); atmosphere.sunDirection.copy(sun);
-    celestial.lunar.update(starClock,camera.position);
+    celestial.update(elapsed,current,light,camera,starClock);
     const lunar=celestial.lunar;
-    followMoon(paused?0:dt);
-    const moonlight=lunar.fraction*lunar.fraction*THREE.MathUtils.smoothstep(lunar.altitude,0,.3);
+    const moonlight=lunar.fraction*lunar.fraction;
     // Soft ambient fill keeps moonless overcast readable. Direct moonlight still
-    // follows the actual Moon; the fill does not expose stars through clouds.
+    // follows the composed Moon; the fill does not expose stars through clouds.
     moonDirection.set(light.x*2-1,light.y*2-1,.5).unproject(camera).sub(camera.position).normalize();
-    if(moonlight>.01)moonDirection.copy(lunar.direction);
+    if(moonlight>.01)moonDirection.copy(celestial.material.uniforms.moonDirection.value);
     clouds.sunDirection.copy(sun).lerp(moonDirection,current.night).normalize();
     const cloudLight=THREE.MathUtils.lerp(1,.035+.025*moonlight,current.night);
     const skyLight=THREE.MathUtils.lerp(1,.25,current.night);
@@ -367,7 +351,6 @@ async function init() {
     // At full night the celestial plane is opaque and replaces every sky pixel.
     // Keep the atmospheric sky throughout dawn/dusk blending.
     sky.visible=current.night!==1;
-    celestial.update(elapsed,current,light,camera,starClock);
     snowFog.setRGB(.39+light.warmth*.045*(1-current.blizzard)-current.blizzard*.19,.44-current.blizzard*.20,.51-light.warmth*.045*(1-current.blizzard)-current.blizzard*.205);
     grade.uniforms.get('snowHaze').value=light.haze;
     grade.uniforms.get('snowFogColor').value.copy(snowFog);
@@ -405,7 +388,10 @@ function applyLiveModel(model) {
   const next=weatherScene(model.current,model.location);
   if(!next)return;
   const first=!liveModel;
+  const moved=liveModel && (liveModel.location?.latitude!==model.location?.latitude || liveModel.location?.longitude!==model.location?.longitude);
   liveModel=model;lastLiveMinute=Math.floor(Date.now()/60000);
+  if(moved)previewIndex=-1;
+  if(previewIndex>=0)return;
   key='live';target=next;cycle=false;notifyRendered=true;
   const latitude=model.location?.latitude, longitude=model.location?.longitude;
   if(Number.isFinite(latitude) && Number.isFinite(longitude)){
@@ -417,9 +403,21 @@ function applyLiveModel(model) {
   if(first)current={...target};
   if(!next.lightning)flashAge=99;
 }
+function stepPreview(step) {
+  if(!liveModel || !Number.isInteger(step) || Math.abs(step)!==1)return;
+  const count=previewScenes.length+1;
+  previewIndex=((previewIndex+1+step+count)%count)-1;
+  if(previewIndex<0){applyLiveModel(liveModel);return;}
+  key='preview';cycle=false;
+  target=weatherScene({...previewScenes[previewIndex],windSpeed:12},liveModel.location);
+  target.elevation=previewScenes[previewIndex].isDay?18:-12;
+  if(!target.lightning)flashAge=99;
+}
 window.addEventListener('message',event=>{
   if(!embedded || event.source!==parent || event.origin!==location.origin)return;
   if(event.data?.type==='weather-model')applyLiveModel(event.data.model);
+  else if(event.data?.type==='atmosphere-step')stepPreview(event.data.step);
+  else if(event.data?.type==='atmosphere-live'){previewIndex=-1;applyLiveModel(liveModel);}
 });
 $('day-night').addEventListener('click',toggleDayNight);
 $('framing').addEventListener('click',toggleFraming);
