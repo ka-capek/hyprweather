@@ -7,6 +7,7 @@ import { weatherScene } from './weather-scene.js';
 import { CelestialSky } from './celestial.js';
 import { framingSettings, lightComposition } from './composition.js';
 import { Lightning } from './lightning.js';
+import { HDRLightning } from './hdr-lightning.js';
 import { lightningPulse } from './lightning-path.js';
 import { Precipitation } from './precipitation.js';
 import { createRandom, createCloudField, cloudVelocity } from './motion.js';
@@ -50,8 +51,34 @@ for (const [name, preset] of Object.entries(presets)) {
 }
 let key = 'sunset', current, target, paused = false, cycle = false, frames = 0, elapsed = 0, fps = 0;
 let flashAge = 99, nextFlash = 6;
-let renderer, camera, composer, clouds, skyMaterial, atmosphere, particles, grade, bloom, celestial, lightning, lightningPass, cloudAtmosphere;
+let renderer, camera, composer, clouds, skyMaterial, atmosphere, particles, grade, bloom, celestial, lightning, lightningPass, cloudAtmosphere, hdrLightning;
 let localFrame;
+let viewHeading=0, viewTilt=rad(framingSettings(framing).tilt);
+const viewAim=new THREE.Vector3();
+function aimCamera() {
+  viewAim.set(Math.sin(viewHeading)*Math.cos(viewTilt),Math.cos(viewHeading)*Math.cos(viewTilt),Math.sin(viewTilt));
+  viewAim.transformDirection(localFrame).multiplyScalar(10000).add(camera.position);
+  camera.lookAt(viewAim);camera.updateMatrixWorld(true);
+}
+function followMoon(dt) {
+  const lunar=celestial.lunar, basis=localFrame.elements;
+  let heading=0, tilt=rad(framingSettings(framing).tilt);
+  if(current.night>0 && lunar.altitude>0){
+    const v=lunar.direction;
+    const east=v.x*basis[0]+v.y*basis[1]+v.z*basis[2];
+    const north=v.x*basis[4]+v.y*basis[5]+v.z*basis[6];
+    const halfFov=Math.tan(rad(camera.fov)*.5);
+    heading=Math.atan2(east,north)-Math.atan(.35*halfFov*camera.aspect);
+    tilt=THREE.MathUtils.lerp(tilt,Math.max(tilt,Math.min(rad(70),lunar.altitude-Math.atan(.5*halfFov))),current.night);
+    heading*=current.night;
+  }
+  const difference=Math.atan2(Math.sin(heading-viewHeading),Math.cos(heading-viewHeading));
+  const blend=frames===0?1:1-Math.exp(-dt*.7);
+  if(Math.abs(difference)+Math.abs(tilt-viewTilt)>1e-8){
+    viewHeading+=difference*blend;viewTilt+= (tilt-viewTilt)*blend;
+    aimCamera();
+  }
+}
 
 // A restrained display-space grade, plus a spatial lightning pulse. Weather
 // volumes and their illumination are rendered by Takram before this pass.
@@ -60,6 +87,8 @@ class WeatherGrade extends Effect {
     super('WeatherGrade', `
       uniform float nightAmount, flashAmount, fogAmount, snowHaze, viewAspect;
       uniform vec2 fogMotion;
+      uniform sampler2D cloudOpacity;
+      uniform float nightOvercast;
       uniform vec3 snowFogColor;
       uniform vec2 fogDrift;
       float hash(vec2 p) { return fract(sin(dot(p,vec2(127.1,311.7)))*43758.5453); }
@@ -99,6 +128,14 @@ class WeatherGrade extends Effect {
             color=mix(color,bank,opacity);
           }
         }
+        // Low-level scattered urban/sky glow: a soft moving fill restricted to
+        // the renderer's cloud opacity, never painted across clear star gaps.
+        if(nightOvercast>.001){
+          vec2 q=uv*vec2(viewAspect,1.)*3.2+fogDrift+fogMotion*.35;
+          float bank=.68*noise2(q)+.23*noise2(q*2.07+7.)+.09*noise2(q*4.13);
+          float fill=smoothstep(.2,.8,bank)*texture2D(cloudOpacity,uv).a*nightOvercast;
+          color+=vec3(.018,.030,.048)*fill;
+        }
         // Fine distant snow uses a much cheaper extinction field.
         float snowVeil=snowHaze;
         if(snowHaze>.001)snowVeil*=.94+.06*noise2(uv*vec2(viewAspect,1.)*4.+fogMotion);
@@ -106,7 +143,11 @@ class WeatherGrade extends Effect {
         float noise = fract(sin(dot(uv*vec2(1316.,1396.),vec2(12.9898,78.233)))*43758.5453)-.5;
         color += noise/255.;
         outColor = vec4(color,c.a);
-      }`, { uniforms: new Map([['viewAspect', new THREE.Uniform(1)], ['fogMotion', new THREE.Uniform(new THREE.Vector2())], ['snowHaze', new THREE.Uniform(0)], ['snowFogColor', new THREE.Uniform(new THREE.Color(.39,.44,.51))], ['fogAmount', new THREE.Uniform(0)], ['fogDrift', new THREE.Uniform(new THREE.Vector2(random()*100, random()*100))], ['nightAmount', new THREE.Uniform(0)], ['flashAmount', new THREE.Uniform(0)], ['flashPosition', new THREE.Uniform(new THREE.Vector2(.7,.65))]]) });
+      }`, { uniforms: new Map([['cloudOpacity', new THREE.Uniform(null)], ['nightOvercast', new THREE.Uniform(0)], ['viewAspect', new THREE.Uniform(1)], ['fogMotion', new THREE.Uniform(new THREE.Vector2())], ['snowHaze', new THREE.Uniform(0)], ['snowFogColor', new THREE.Uniform(new THREE.Color(.39,.44,.51))], ['fogAmount', new THREE.Uniform(0)], ['fogDrift', new THREE.Uniform(new THREE.Vector2(random()*100, random()*100))], ['nightAmount', new THREE.Uniform(0)], ['flashAmount', new THREE.Uniform(0)], ['flashPosition', new THREE.Uniform(new THREE.Vector2(.7,.65))]]) });
+  }
+  update() {
+    // Clouds swaps temporal targets during its own update earlier in the frame.
+    this.uniforms.get('cloudOpacity').value=clouds.atmosphereOverlay?.map ?? null;
   }
 }
 
@@ -173,8 +214,7 @@ function applyFraming() {
   const flat = framing === 'flat';
   const settings = framingSettings(framing);
   camera.fov = settings.fov;
-  const tilt = rad(settings.tilt);
-  camera.lookAt(camera.position.clone().add(new THREE.Vector3(0,Math.cos(tilt),Math.sin(tilt)).transformDirection(localFrame).multiplyScalar(10000)));
+  aimCamera();
   camera.updateProjectionMatrix();
   camera.updateMatrixWorld(true);
   $('framing').textContent = flat ? 'View: layered' : 'View: wide';
@@ -194,11 +234,12 @@ async function init() {
   localFrame=Ellipsoid.WGS84.getEastNorthUpFrame(camera.position);
   applyFraming();
   const scene = new THREE.Scene();
-  const [textures, weather, shape, detail, turbulence, stbn, starMap] = await Promise.all([
+  const [textures, weather, shape, detail, turbulence, stbn, starMap, moonMap] = await Promise.all([
     new PrecomputedTexturesLoader({ format: 'binary', combinedScattering: true, higherOrderScattering: true }).loadAsync('./atmosphere'),
     texture2D('./clouds/local_weather.png'), texture3D('./clouds/shape.bin',128), texture3D('./clouds/shape_detail.bin',32),
     texture2D('./clouds/turbulence.png'), new STBNLoader().loadAsync('./clouds/stbn.bin'),
     new THREE.TextureLoader().loadAsync('./sky/nasa-starmap-8k.jpg'),
+    new THREE.TextureLoader().loadAsync('./sky/nasa-moon-2k.jpg'),
   ]);
   skyMaterial = new SkyMaterial({ ...textures, ground: false, sun: false, groundAlbedo: new THREE.Color(.015,.017,.02), moon: false, sunAngularRadius: .008 });
   const sky = new THREE.Mesh(new THREE.PlaneGeometry(2,2), skyMaterial);
@@ -208,7 +249,9 @@ async function init() {
   starMap.wrapS=THREE.RepeatWrapping;starMap.wrapT=THREE.ClampToEdgeWrapping;
   // Isotropic mip selection near the celestial pole smears stars radially.
   starMap.minFilter=THREE.LinearFilter;starMap.generateMipmaps=false;
-  celestial = new CelestialSky(scene, seed, starMap);
+  moonMap.colorSpace=THREE.SRGBColorSpace;
+  moonMap.wrapS=THREE.RepeatWrapping;
+  celestial = new CelestialSky(scene, seed, starMap, moonMap);
   cloudAtmosphere = new AtmosphereParameters();
   clouds = new CloudsEffect(camera,undefined,cloudAtmosphere);
   Object.assign(clouds, textures);
@@ -250,6 +293,7 @@ async function init() {
   // full-resolution half-float framebuffer write/read between the last two.
   composer.addPass(new EffectPass(camera,bloom,new ToneMappingEffect({ mode:ToneMappingMode.AGX }),grade));
   particles = new Precipitation(renderer, createRandom(seed ^ 0x9e3779b9));
+  hdrLightning = new HDRLightning($('scene'));
   setScene(presets[params.get('scene')] ? params.get('scene') : 'sunset',true);
   const resize = () => {
     const width=Math.max(1,$('scene').clientWidth),height=Math.max(1,$('scene').clientHeight);
@@ -266,6 +310,8 @@ async function init() {
     })),
     diagnostics:()=>({ frames, fps:Math.round(fps), errors, scroll:document.documentElement.scrollHeight>innerHeight || document.documentElement.scrollWidth>innerWidth,
       width:innerWidth,height:innerHeight,scene:key,seed,framing,horizonClearance:framingSettings(framing).tilt-camera.fov/2,light:lightComposition(current.elevation,current.azimuth,current.night,current.blizzard,current.snow),snow:current.snow,blizzard:current.blizzard,night:current.night,rain:current.rain,lightning:target.lightning,weatherCode:target.weatherCode,coverage:target.coverage,wind:target.wind,canvas:[renderer.domElement.width,renderer.domElement.height],cssSize:[renderer.domElement.clientWidth,renderer.domElement.clientHeight],celestialViewport:celestial.material.uniforms.viewport.value.toArray(),cloudOffset:clouds.localWeatherOffset.toArray(),shapeOffset:clouds.shapeOffset.toArray(),renderer:renderer.getContext().getParameter(renderer.getContext().getExtension('WEBGL_debug_renderer_info')?.UNMASKED_RENDERER_WEBGL || renderer.getContext().RENDERER),
+      hdr:hdrLightning.diagnostics(),
+      moon:{fraction:celestial.lunar.fraction,altitude:celestial.lunar.altitude,angularRadius:celestial.lunar.angularRadius},
       textures:renderer.info.memory.textures,programs:renderer.info.programs.length,paused,elapsed }) };
   $('loading').classList.add('hidden');
   if(embedded)parent.postMessage({type:'atmosphere-ready'},location.origin);
@@ -296,15 +342,20 @@ async function init() {
     const elev=rad(current.elevation), az=rad(current.azimuth);
     sun.set(Math.sin(az)*Math.cos(elev),Math.cos(az)*Math.cos(elev),Math.sin(elev)).transformDirection(localFrame);
     skyMaterial.sunDirection.copy(sun); atmosphere.sunDirection.copy(sun);
-    // Night storm: use an artistic low-intensity overhead illumination on the
-    // cloud volume; the astronomical sky remains at the actual lab sun angle.
+    celestial.lunar.update(starClock,camera.position);
+    const lunar=celestial.lunar;
+    followMoon(paused?0:dt);
+    const moonlight=lunar.fraction*lunar.fraction*THREE.MathUtils.smoothstep(lunar.altitude,0,.3);
+    // Soft ambient fill keeps moonless overcast readable. Direct moonlight still
+    // follows the actual Moon; the fill does not expose stars through clouds.
     moonDirection.set(light.x*2-1,light.y*2-1,.5).unproject(camera).sub(camera.position).normalize();
+    if(moonlight>.01)moonDirection.copy(lunar.direction);
     clouds.sunDirection.copy(sun).lerp(moonDirection,current.night).normalize();
-    const moonIllumination=THREE.MathUtils.lerp(.035,.008,THREE.MathUtils.smoothstep(current.coverage,.35,.9));
-    const cloudLight=THREE.MathUtils.lerp(1,moonIllumination,current.night);
+    const cloudLight=THREE.MathUtils.lerp(1,.035+.025*moonlight,current.night);
+    const skyLight=THREE.MathUtils.lerp(1,.25,current.night);
     cloudAtmosphere.sunRadianceToRelativeLuminance.copy(AtmosphereParameters.DEFAULT.sunRadianceToRelativeLuminance).multiplyScalar(cloudLight);
-    cloudAtmosphere.skyRadianceToRelativeLuminance.copy(AtmosphereParameters.DEFAULT.skyRadianceToRelativeLuminance).multiplyScalar(cloudLight);
-    clouds.skyLightScale=THREE.MathUtils.lerp(1,.22,current.night);
+    cloudAtmosphere.skyRadianceToRelativeLuminance.copy(AtmosphereParameters.DEFAULT.skyRadianceToRelativeLuminance).multiplyScalar(skyLight);
+    clouds.skyLightScale=THREE.MathUtils.lerp(1,.6,current.night);
     clouds.coverage=current.coverage;
     clouds.cloudLayers[0].densityScale=current.density;
     clouds.cloudLayers[1].densityScale=current.density*.7;
@@ -322,13 +373,15 @@ async function init() {
     grade.uniforms.get('snowFogColor').value.copy(snowFog);
     renderer.toneMappingExposure=current.exposure;
     grade.uniforms.get('fogAmount').value=current.fog;
-    grade.uniforms.get('nightAmount').value=current.night*.58*(1-Math.min(flash,1)*.9);
+    grade.uniforms.get('nightOvercast').value=current.night*THREE.MathUtils.smoothstep(current.coverage,.68,.93);
+    grade.uniforms.get('nightAmount').value=current.night*.42*(1-Math.min(flash,1)*.9);
     grade.uniforms.get('flashAmount').value=flash;
     const frameDt=paused?0:dt;
     grade.uniforms.get('fogMotion').value.x+=frameDt*(.012+current.wind*.0012);
     grade.uniforms.get('fogMotion').value.y+=frameDt*.006;
     composer.render(frameDt);
     particles.render(elapsed,current.rain,current.snow,current.wind,flash,light,snowFog,current.blizzard);
+    hdrLightning.render(lightning,flash,renderer.domElement.width,renderer.domElement.height);
     frames++;sampleFrames++;
     if (embedded && notifyRendered) { parent.postMessage({type:'atmosphere-rendered'},location.origin); notifyRendered=false; }
     if(now-sampleStart>1000){fps=sampleFrames*1000/(now-sampleStart);$('fps').textContent=`${Math.round(fps)} FPS · WEBGL2`;sampleStart=now;sampleFrames=0;}

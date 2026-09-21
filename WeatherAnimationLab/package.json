@@ -13,7 +13,8 @@
     "@takram/three-clouds": "0.7.6",
     "@takram/three-geospatial": "0.9.1",
     "postprocessing": "6.39.1",
-    "three": "0.183.2"
+    "three": "0.183.2",
+    "astronomy-engine": "2.1.19"
   },
   "devDependencies": {
     "vite": "^7.3.0"

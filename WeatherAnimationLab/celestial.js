@@ -1,13 +1,18 @@
 import * as THREE from 'three';
 import {siderealAngle} from './sidereal.js';
+import {LunarState} from './lunar-state.js';
 
 // This pass belongs INSIDE the sky scene, before the volumetric-cloud composite.
 // Cloud transmittance therefore hides stars and the complete moon halo together.
 export class CelestialSky {
-  constructor(scene, seed, starMap) {
+  constructor(scene, seed, starMap, moonMap) {
+    this.lunar = new LunarState();
     this.material = new THREE.ShaderMaterial({
       uniforms: {
         starMap:{value:starMap},sidereal:{value:0},
+        moonMap:{value:moonMap},moonDirection:{value:this.lunar.direction},
+        lunarSun:{value:this.lunar.sunDirection},lunarSurface:{value:this.lunar.surfaceRotation},
+        moonRadius:{value:.0045},moonFraction:{value:0},
         projectionInverse:{value:new THREE.Matrix4()},cameraRotation:{value:new THREE.Matrix3()},
         viewport: { value: new THREE.Vector4(0,0,1,1) }, time: { value: 0 }, night: { value: 0 },
         seed: { value: (seed % 10000) / 100 }, pixel: { value: 1 / 1396 },
@@ -18,17 +23,16 @@ export class CelestialSky {
       vertexShader: `void main(){gl_Position=vec4(position.xy,1.,1.);}`,
       fragmentShader: `
         uniform vec4 viewport;
-        uniform sampler2D starMap;
+        uniform sampler2D starMap, moonMap;
+        uniform vec3 moonDirection, lunarSun;
+        uniform mat3 lunarSurface;
+        uniform float moonRadius, moonFraction;
         uniform mat4 projectionInverse;
         uniform mat3 cameraRotation;
         uniform float sidereal;
         uniform float time, night, seed, pixel, sunAmount, moonAmount, warmth, snowAmount;
         uniform vec2 lightPosition;
         float hash(vec2 p){return fract(sin(dot(p,vec2(127.1,311.7))+seed)*43758.5453);}
-        float noise(vec2 p){
-          vec2 i=floor(p),f=fract(p);f=f*f*(3.-2.*f);
-          return mix(mix(hash(i),hash(i+vec2(1,0)),f.x),mix(hash(i+vec2(0,1)),hash(i+1.),f.x),f.y);
-        }
         void main(){
           // Use the active render target, not cached DOM dimensions/interpolated UVs.
           vec2 screen=(gl_FragCoord.xy-viewport.xy)/viewport.zw;
@@ -37,28 +41,37 @@ export class CelestialSky {
           float r=length(d);
           vec3 base=mix(vec3(.012,.025,.058),vec3(.003,.008,.025),screen.y);
           vec3 stars=vec3(0.);
+          vec4 viewRay=projectionInverse*vec4(screen*2.-1.,1.,1.);
+          vec3 earthRay=normalize(cameraRotation*viewRay.xyz);
           if(night>.001){
-            vec4 viewRay=projectionInverse*vec4(screen*2.-1.,1.,1.);
-            vec3 earthRay=normalize(cameraRotation*viewRay.xyz);
             float ra=atan(earthRay.y,earthRay.x)+sidereal;
             vec2 mapUv=vec2(fract(.5-ra/6.28318530718),asin(clamp(earthRay.z,-1.,1.))/3.14159265359+.5);
             stars=texture2D(starMap,mapUv).rgb*3.2;
             stars*=.97+.03*sin(time*1.1+hash(floor(mapUv*8192.))*60.);
           }
-          float moonRadius=.027;
-          float disk=0.;
+          float chord=length(earthRay-moonDirection);
+          float edge=max(fwidth(chord),.00001);
+          float disk=(1.-smoothstep(moonRadius-edge,moonRadius+edge,chord))*moonAmount;
           vec3 moon=vec3(0.);
-          if(moonAmount!=0.){
-            disk=1.-smoothstep(moonRadius-pixel,moonRadius+pixel,r);
-            float surface=0.;
-            if(disk>0.){
-              float relief=.78+.12*noise(d*440.)+.1*noise(d*930.);
-              float limb=sqrt(max(0.,1.-pow(r/moonRadius,2.)));
-              surface=disk*relief*(1.7+.6*limb);
-            }
-            moon=vec3(.81,.88,1.)*(surface
-                      +.24*exp(-r*36.)+.1*exp(-r*12.))*moonAmount;
+          if(disk>0.){
+            float along=dot(earthRay,moonDirection);
+            float radius=sin(moonRadius);
+            float distance=along-sqrt(max(0.,along*along-1.+radius*radius));
+            vec3 normal=normalize(earthRay*distance-moonDirection);
+            vec3 surfaceNormal=lunarSurface*normal;
+            vec2 moonUv=vec2(atan(surfaceNormal.y,surfaceNormal.x)/6.28318530718+.5,
+              asin(clamp(surfaceNormal.z,-1.,1.))/3.14159265359+.5);
+            vec3 albedo=texture2D(moonMap,moonUv).rgb;
+            float lit=max(0.,dot(normal,lunarSun));
+            float facing=max(.001,dot(normal,-earthRay));
+            // A rough lunar surface: retain detail at full moon, with a real
+            // moving terminator and a very faint earthshine on the dark side.
+            float reflectance=lit/(lit+facing+.001);
+            moon=albedo*(7.*reflectance+.006*(1.-moonFraction))*disk;
           }
+          float halo=exp(-chord/max(moonRadius,.0001)*2.5)*moonFraction*moonAmount*.08;
+          moon+=vec3(.72,.81,1.)*halo;
+          float moonAlpha=max(disk,halo);
           vec3 sun=vec3(0.);
           float sunAlpha=0.;
           if(sunAmount!=0.){
@@ -69,8 +82,8 @@ export class CelestialSky {
             sun=sunColor*sunlight;
             sunAlpha=clamp((sunDisk+exp(-r*18.)*.32)*sunAmount,0.,1.);
           }
-          float alpha=max(night,sunAlpha);
-          vec3 rgb=(base+stars*(1.-disk*moonAmount)+moon)*night+sun;
+          float alpha=max(max(night,sunAlpha),moonAlpha);
+          vec3 rgb=(base+stars*(1.-disk))*night+moon+sun;
           gl_FragColor=vec4(rgb/max(alpha,.0001),alpha);
         }`,
       transparent: true, depthTest: false, depthWrite: false, toneMapped: false,
@@ -85,7 +98,8 @@ export class CelestialSky {
     scene.add(this.mesh);
   }
   update(time, state, light, camera, now) {
-    this.mesh.visible = state.night !== 0 || light.sun !== 0;
+    this.lunar.update(now, camera.position);
+    this.mesh.visible = state.night !== 0 || light.sun !== 0 || state.blizzard !== 1;
     if (!this.mesh.visible) return;
     const u = this.material.uniforms;
     u.time.value = time;
@@ -95,7 +109,11 @@ export class CelestialSky {
     u.night.value = state.night;
     u.lightPosition.value.set(light.x, light.y);
     u.sunAmount.value = light.sun;
-    u.moonAmount.value = light.moon;
+    u.moonAmount.value = 1-state.blizzard;
+    // Modest visual magnification preserves readable surface detail at widget
+    // size; position, phase, orientation and distance variation remain real.
+    u.moonRadius.value = this.lunar.angularRadius*2.4;
+    u.moonFraction.value = this.lunar.fraction;
     u.warmth.value = light.warmth;
     u.snowAmount.value = state.snow;
   }
