@@ -353,5 +353,6 @@ Další požadovaný průchod: vylepšit hloubku a prostorový dojem mlhy; uživ
 - Mlha: výraznější hloubka, prostorové vrstvy a pohyb; prozkoumat jemný náznak horizontu, pokud pomůže vnímání vzdálenosti.
 - Ostrost hvězd: uživatel hlásí neostrou hvězdnou oblohu na svém 1440p displeji. Prověřit rozlišení zdrojové mapy, renderovací rozlišení, vzorkování a postprocessing; příčina zatím není ověřená. Zachovat krásu i dosavadní výkonové úspory.
 - Jemná animace hvězd: několik hvězd má přirozeně a nenápadně poblikávat, inspirováno Apple Weather; ne synchronizované blikání celé oblohy.
+- Experiment se srážkami v popředí: vyzkoušet pár kapek přistávajících na skle „kamery“ a pár kapek rozbíjejících se o UI elementy. Připravit také odpovídající variantu pro sněhové vločky na skle a při nárazu do UI. Efekt pouze za deště nebo sněžení, v malém množství. Uživatel nyní žádá jen zápis do TODO; konkrétní vzhled a zařazení do výsledné aplikace se mají teprve vyzkoušet.
 
 Zdroj: výslovný požadavek uživatele z 21. září 2026. Nyní pouze zaznamenat TODO spolu s mlhou; tyto úpravy zatím nejsou implementované.
