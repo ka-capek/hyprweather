@@ -356,3 +356,7 @@ Další požadovaný průchod: vylepšit hloubku a prostorový dojem mlhy; uživ
 - Experiment se srážkami v popředí: vyzkoušet pár kapek přistávajících na skle „kamery“ a pár kapek rozbíjejících se o UI elementy. Připravit také odpovídající variantu pro sněhové vločky na skle a při nárazu do UI. Efekt pouze za deště nebo sněžení, v malém množství. Uživatel nyní žádá jen zápis do TODO; konkrétní vzhled a zařazení do výsledné aplikace se mají teprve vyzkoušet.
 
 Zdroj: výslovný požadavek uživatele z 21. září 2026. Nyní pouze zaznamenat TODO spolu s mlhou; tyto úpravy zatím nejsou implementované.
+
+## Vizuální TODO — realizace 23. září 2026
+
+Uživatel dal pokyn implementovat celý uvedený vizuální průchod. První část: NASA pozadí doplněné 2 371 ostrými bodovými jádry odvozenými z téže mapy (66 kB); nepravidelný jemný třpyt pouze části hvězd. Původní široká jádra mapy jsou ztlumená, mléčná dráha zůstává. Nedochází ke zvýšení rozlišení volumetrických mraků ani k přidání fullscreen průchodu; bodová vrstva se ve dne nekreslí. Body vznikají před cloud kompozicí a respektují disk Měsíce. Rozlišení aplikace v režimu high je při DPR 1 nativní, ověřeno 1316 × 1440; původní neostrost pochází i ze zvětšení výřezu celosférické 8K mapy. Build, 12 testovacích souborů a Electron render prošly; výslednou ostrost na uživatelově monitoru ještě musí potvrdit uživatel.

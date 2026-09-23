@@ -49,8 +49,8 @@ export class CelestialSky {
           if(night>.001){
             float ra=atan(earthRay.y,earthRay.x)+sidereal;
             vec2 mapUv=vec2(fract(.5-ra/6.28318530718),asin(clamp(earthRay.z,-1.,1.))/3.14159265359+.5);
-            stars=texture2D(starMap,mapUv).rgb*3.2;
-            stars*=.97+.03*sin(time*1.1+hash(floor(mapUv*8192.))*60.);
+            // Preserve diffuse Milky Way/detail; compact bright cores are separate points.
+            stars=texture2D(starMap,mapUv).rgb*1.65;
           }
           float chord=length(earthRay-moonDirection);
           float edge=max(fwidth(chord),.00001);

@@ -5,6 +5,7 @@ import { CloudsEffect } from '@takram/three-clouds';
 import { STBNLoader, Geodetic, Ellipsoid } from '@takram/three-geospatial';
 import { weatherScene, WMO } from './weather-scene.js';
 import { CelestialSky } from './celestial.js';
+import { StarCores } from './star-cores.js';
 import { framingSettings, lightComposition } from './composition.js';
 import { Lightning } from './lightning.js';
 import { HDRLightning } from './hdr-lightning.js';
@@ -219,12 +220,13 @@ async function init() {
   localFrame=Ellipsoid.WGS84.getEastNorthUpFrame(camera.position);
   applyFraming();
   const scene = new THREE.Scene();
-  const [textures, weather, shape, detail, turbulence, stbn, starMap, moonMap] = await Promise.all([
+  const [textures, weather, shape, detail, turbulence, stbn, starMap, moonMap, starCoresData] = await Promise.all([
     new PrecomputedTexturesLoader({ format: 'binary', combinedScattering: true, higherOrderScattering: true }).loadAsync('./atmosphere'),
     texture2D('./clouds/local_weather.png'), texture3D('./clouds/shape.bin',128), texture3D('./clouds/shape_detail.bin',32),
     texture2D('./clouds/turbulence.png'), new STBNLoader().loadAsync('./clouds/stbn.bin'),
     new THREE.TextureLoader().loadAsync('./sky/nasa-starmap-8k.jpg'),
     new THREE.TextureLoader().loadAsync('./sky/nasa-moon-2k.jpg'),
+    fetch('./sky/nasa-star-cores.bin').then(response=>{if(!response.ok)throw new Error('Unable to load star cores');return response.arrayBuffer();}),
   ]);
   skyMaterial = new SkyMaterial({ ...textures, ground: false, sun: false, groundAlbedo: new THREE.Color(.015,.017,.02), moon: false, sunAngularRadius: .008 });
   const sky = new THREE.Mesh(new THREE.PlaneGeometry(2,2), skyMaterial);
@@ -237,6 +239,7 @@ async function init() {
   moonMap.colorSpace=THREE.SRGBColorSpace;
   moonMap.wrapS=THREE.RepeatWrapping;
   celestial = new CelestialSky(scene, seed, starMap, moonMap);
+  const starCores = new StarCores(scene,starCoresData,celestial.material.uniforms);
   cloudAtmosphere = new AtmosphereParameters();
   clouds = new CloudsEffect(camera,undefined,cloudAtmosphere);
   Object.assign(clouds, textures);
@@ -328,6 +331,7 @@ async function init() {
     sun.set(Math.sin(az)*Math.cos(elev),Math.cos(az)*Math.cos(elev),Math.sin(elev)).transformDirection(localFrame);
     skyMaterial.sunDirection.copy(sun); atmosphere.sunDirection.copy(sun);
     celestial.update(elapsed,current,light,camera,starClock);
+    starCores.update(current.night);
     const lunar=celestial.lunar;
     const moonlight=lunar.fraction*lunar.fraction;
     // Soft ambient fill keeps moonless overcast readable. Direct moonlight still
