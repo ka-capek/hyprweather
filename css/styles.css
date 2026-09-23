@@ -101,7 +101,7 @@ body {
       rgba(7, 11, 18, 0.66) 100%);
 }
 
-.app > :not(.sky):not(.sky-veil) { position: relative; z-index: 1; }
+.app > :not(.sky):not(.sky-veil):not(.weather-contacts) { position: relative; z-index: 1; }
 
 /* --- Nenápadné označení ukázky --------------------------------- */
 
@@ -411,3 +411,9 @@ body {
 #location-dialog :focus-visible { outline: 2px solid #aacbee; outline-offset: 3px; }
 .location-credit { margin: 20px 0 0; font-size: 10px; color: var(--ink-soft); }
 .location-credit a { color: inherit; }
+
+/* Sparse weather contacts sit above the UI without intercepting any input. */
+.app > .weather-contacts {
+  position: absolute; inset: 0; width: 100%; height: 100%;
+  z-index: 3; pointer-events: none;
+}

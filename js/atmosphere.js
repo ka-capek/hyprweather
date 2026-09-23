@@ -8,8 +8,10 @@
   frame.tabIndex = -1;
   frame.setAttribute('aria-hidden', 'true');
   var model = null, ready = false;
+  var contacts = WeatherContacts.create(host.closest('.app'));
   function send(data) { frame.contentWindow.postMessage(data, location.origin); }
   window.Atmosphere = {
+    diagnostics: function () { return contacts.diagnostics(); },
     update: function (next) {
       if (next.meta.mock || !Number.isInteger(next.current.weatherCode)) return;
       model = next;
@@ -24,7 +26,10 @@
     } else if (event.data?.type === 'atmosphere-rendered') {
       frame.classList.add('ready');
       host.closest('.app').classList.add('has-atmosphere');
+    } else if (event.data?.type === 'atmosphere-state' && ready) {
+      contacts.update(event.data.state || {});
     } else if (event.data?.type === 'atmosphere-error') {
+      contacts.clear();
       ready = false;
       frame.classList.remove('ready');
       host.closest('.app').classList.remove('has-atmosphere');

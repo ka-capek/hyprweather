@@ -406,6 +406,9 @@ function toggleDayNight() {
   $('day-night').setAttribute('aria-pressed',Boolean(target.night));
   $('sun').value=target.elevation;updateLabels();
 }
+function notifyWeatherState() {
+  if(embedded)parent.postMessage({type:'atmosphere-state',state:{rain:target.rain,snow:target.snow,wind:target.wind,night:target.night}},location.origin);
+}
 function applyLiveModel(model) {
   if(!model || !renderer || !current)return;
   const next=weatherScene(model.current,model.location);
@@ -425,6 +428,7 @@ function applyLiveModel(model) {
   }
   if(first)current={...target};
   if(!next.lightning)flashAge=99;
+  notifyWeatherState();
 }
 function stepPreview(step) {
   if(!liveModel || !Number.isInteger(step) || Math.abs(step)!==1)return;
@@ -435,6 +439,7 @@ function stepPreview(step) {
   target=weatherScene({...previewScenes[previewIndex],windSpeed:12},liveModel.location);
   target.elevation=previewScenes[previewIndex].isDay?18:-12;
   if(!target.lightning)flashAge=99;
+  notifyWeatherState();
 }
 window.addEventListener('message',event=>{
   if(!embedded || event.source!==parent || event.origin!==location.origin)return;
