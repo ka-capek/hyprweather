@@ -73,6 +73,7 @@ class WeatherGrade extends Effect {
       uniform float nightAmount, flashAmount, fogAmount, snowHaze, viewAspect;
       uniform vec2 fogMotion;
       uniform sampler2D cloudOpacity;
+      uniform highp sampler3D fogVolume;
       uniform float nightOvercast;
       uniform vec3 snowFogColor;
       uniform vec2 fogDrift;
@@ -92,26 +93,43 @@ class WeatherGrade extends Effect {
           float structure = .2 + dot(c.rgb,vec3(.25,.5,.25));
           color += flashAmount * glow * structure * vec3(.48,.57,.88);
         }
-        // Advected banks at distinct depths. Density has clear gaps, soft edges,
-        // and stretched detail; foreground sheets cross the distant field.
+        // Integrate a moving 3D density field along perspective rays. Height
+        // falloff creates a distant mist bank, without a ground/sea silhouette.
         if(fogAmount>.001){
-          vec2 p=uv*vec2(viewAspect,1.);
-          float light=exp(-length((uv-vec2(.72,.8))*vec2(viewAspect,1.))*2.);
-          for(int i=0;i<4;i++){
-            float layer=float(i);
-            vec2 q=p*vec2(1.45+layer*.52,3.4+layer*1.25)
-              +fogDrift*(.13+layer*.21)+fogMotion*(.45+layer*.44);
-            vec2 bend=vec2(noise2(q*.72+layer*17.),noise2(q*.53+8.3))-.5;
-            q+=bend*1.5;
-            float body=noise2(q)*.62+noise2(q*2.07+11.)*.27+noise2(q*4.13)*.11;
-            float filament=noise2(q*vec2(.6,2.8)+bend);
-            float density=smoothstep(.42,.72,body+filament*.075);
-            float opacity=1.-exp(-density*fogAmount*(.48+layer*.16));
-            vec3 bank=mix(vec3(.25,.32,.40),vec3(.53,.59,.65),body);
-            bank+=vec3(.065,.052,.03)*light;
-            bank=mix(bank,vec3(.035,.065,.105)+body*.055,nightAmount);
-            color=mix(color,bank,opacity);
+          vec3 ray=normalize(vec3((uv.x-.5)*viewAspect*.72,(uv.y-.46)*.72,1.));
+          vec3 drift=vec3(fogMotion.x*18.,0.,fogMotion.y*12.);
+          vec3 offset=vec3(fogDrift.x,0.,fogDrift.y);
+          float transmittance=1.;
+          vec3 scattering=vec3(0.);
+          float previous=0.;
+          float backlight=exp(-length((uv-vec2(.72,.8))*vec2(viewAspect,1.))*3.);
+          float nightBlend=clamp(nightAmount/.42,0.,1.);
+          for(int i=0;i<16;i++){
+            float t=(float(i)+1.)/16.;
+            float distance=4.+t*t*160.;
+            float stepLength=distance-previous;
+            vec3 p=vec3(0.,5.,0.)+ray*(distance-stepLength*.5);
+            vec3 q=(p+drift)*vec3(.0035,.026,.0016)+offset;
+            float coarse=texture(fogVolume,q).r;
+            float detail=texture(fogVolume,q*2.13+vec3(3.1,7.7,1.9)).r;
+            float density=smoothstep(.71,.88,coarse*.78+detail*.22);
+            float height=exp(-max(p.y-3.,0.)*.055);
+            density=(density*1.25+.025)*height*fogAmount;
+            float opacity=1.-exp(-density*stepLength*.032);
+            // A nearby sample towards the light gives soft self-shading. Far
+            // banks blend toward cooler haze; foreground wisps stay distinct.
+            float shade=texture(fogVolume,q+vec3(.04,.075,-.03)).r;
+            float illumination=clamp(.72+(coarse-shade)*2.5+backlight*.32,.38,1.2);
+            vec3 day=mix(vec3(.16,.22,.28),vec3(.43,.49,.54),t)*illumination;
+            day+=vec3(.055,.042,.023)*backlight;
+            vec3 night=mix(vec3(.025,.043,.066),vec3(.080,.110,.15),t)*illumination;
+            vec3 bank=mix(day,night,nightBlend)+flashAmount*vec3(.18,.22,.30);
+            scattering+=transmittance*opacity*bank;
+            transmittance*=1.-opacity;
+            previous=distance;
+            if(transmittance<.025)break;
           }
+          color=color*transmittance+scattering;
         }
         // Dramatic scattered sky glow: moving highlights restricted to
         // the renderer's cloud opacity, never painted across clear star gaps.
@@ -129,7 +147,7 @@ class WeatherGrade extends Effect {
         float noise = fract(sin(dot(uv*vec2(1316.,1396.),vec2(12.9898,78.233)))*43758.5453)-.5;
         color += noise/255.;
         outColor = vec4(color,c.a);
-      }`, { uniforms: new Map([['cloudOpacity', new THREE.Uniform(null)], ['nightOvercast', new THREE.Uniform(0)], ['viewAspect', new THREE.Uniform(1)], ['fogMotion', new THREE.Uniform(new THREE.Vector2())], ['snowHaze', new THREE.Uniform(0)], ['snowFogColor', new THREE.Uniform(new THREE.Color(.39,.44,.51))], ['fogAmount', new THREE.Uniform(0)], ['fogDrift', new THREE.Uniform(new THREE.Vector2(random()*100, random()*100))], ['nightAmount', new THREE.Uniform(0)], ['flashAmount', new THREE.Uniform(0)], ['flashPosition', new THREE.Uniform(new THREE.Vector2(.7,.65))]]) });
+      }`, { uniforms: new Map([['fogVolume', new THREE.Uniform(null)], ['cloudOpacity', new THREE.Uniform(null)], ['nightOvercast', new THREE.Uniform(0)], ['viewAspect', new THREE.Uniform(1)], ['fogMotion', new THREE.Uniform(new THREE.Vector2())], ['snowHaze', new THREE.Uniform(0)], ['snowFogColor', new THREE.Uniform(new THREE.Color(.39,.44,.51))], ['fogAmount', new THREE.Uniform(0)], ['fogDrift', new THREE.Uniform(new THREE.Vector2(random()*100, random()*100))], ['nightAmount', new THREE.Uniform(0)], ['flashAmount', new THREE.Uniform(0)], ['flashPosition', new THREE.Uniform(new THREE.Vector2(.7,.65))]]) });
   }
   update() {
     // Clouds swaps temporal targets during its own update earlier in the frame.
@@ -277,6 +295,7 @@ async function init() {
   composer.addPass(lightningPass);
   bloom = new BloomEffect({ intensity:.35, luminanceThreshold:1.5, luminanceSmoothing:.5, mipmapBlur:true });
   grade = new WeatherGrade();
+  grade.uniforms.get('fogVolume').value=shape;
   // Preserve bloom → tone mapping → grade ordering in one shader, avoiding a
   // full-resolution half-float framebuffer write/read between the last two.
   composer.addPass(new EffectPass(camera,bloom,new ToneMappingEffect({ mode:ToneMappingMode.AGX }),grade));

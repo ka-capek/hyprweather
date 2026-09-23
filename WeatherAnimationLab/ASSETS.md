@@ -93,3 +93,7 @@ Original procedural ribbon geometry, branching and glow; no third-party effect c
 ## Star cores — September 2026
 
 `public/sky/nasa-star-cores.bin` is derived from the bundled NASA 8K map using `scripts/extract-star-cores.py` (Python + Pillow, offline only). Each record is seven little-endian float32 values: equatorial unit direction, artistic strength, RGB tint. Bright local peaks become small antialiased GPU points; the original map retains diffuse detail. Positions have the angular precision of the source image, not a new catalog. Only a subset twinkles, with independent phases. Source and NASA usage terms remain those of the star map above. No Apple assets or effect code are used.
+
+## Fog volume — September 2026
+
+The former four screen-space sheets are replaced by a 16-step perspective-ray integration of the existing Takram 3D shape texture, with advected density, height falloff, exponential transmittance and approximate self-shading. No new texture asset or render target is allocated. The virtual mist view is artistically composed; it is not terrain geometry or a full atmospheric simulation. Density integration follows the Beer–Lambert principle discussed in Bart Wronski's SIGGRAPH 2014 talk: https://www.realtimerendering.com/advances/s2014/wronski/bwronski_volumetric_fog_siggraph2014.pdf . Implementation is original; no presentation code is copied.
